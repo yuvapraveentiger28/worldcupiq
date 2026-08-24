@@ -2,7 +2,7 @@
 
 > From match data to football intelligence. A governed knowledge system — **semantic layer + ontology + context layer** — that Genie and a Mosaic AI agent reason over, surfaced through a Streamlit Databricks App.
 
-The platform answers deliberately hard questions like *"Was Spain actually the best team in the 2026 World Cup, or simply the champion?"* — not by summarizing a CSV, but by resolving intent against governed business definitions, traversing a football knowledge graph, computing governed metrics, and returning an answer **with source evidence and lineage**.
+The platform answers deliberately hard questions like *"Was Spain actually the best team in the 2026 World Cup, or simply the Champion?"* — not by summarizing a CSV, but by resolving intent against governed business definitions, traversing a football knowledge graph, computing governed metrics, and returning an answer **with source evidence and lineage**.
 
 ---
 
@@ -69,27 +69,32 @@ See `architecture.html` for the rendered layered diagram.
 ```
 worldcupiq/
 ├── README.md
+├── databricks.yml                  # Asset Bundle — deploys 4 bronze pipelines (one per datasource)
 ├── conf/
-│   ├── 00_catalog.sql              # catalog, schemas, external location, volume
+│   ├── 00_catalog.sql              # schemas (incl. fifaworldcup_bronze_<datasource>) + volume in mrlc-catalog
 │   └── 01_grants.sql               # groups, service principal, grants
 ├── ingestion/
 │   └── lakeflow/
-│       ├── bronze.py               # Auto Loader → worldcup.bronze.* (1:1 raw)
-│       ├── silver.py               # normalize → worldcup.silver.* + constraints
-│       └── gold.py                 # star schema → worldcup.gold.*
-├── semantic/
-│   ├── dominance_components.sql    # gold.fact_team_dominance (normalized scores)
+│       ├── bronze.py               # Auto Loader, shared by 5 pipelines (1 per datasource) → fifaworldcup_bronze_<datasource>.* (1:1 raw)
+│       ├── silver.py               # normalize → mrlc-catalog.fifaworldcup_silver.* + constraints
+│       ├── gold.py                 # star schema → mrlc-catalog.fifaworldcup_gold.* (column descriptions live in gold.py's _c() calls for source-level docs, but only reach UC via gold_comments.sql — see below)
+│       └── gold_comments.sql       # COMMENT ON COLUMN for 89 Gold columns — re-run after any gold_pipeline --full-refresh-all (wipes them; a normal run doesn't)
+├── semantic/                       # UC Metric View YAML — deployed to fifaworldcup_semantic (Phase 5)
 │   ├── team_performance.metricview.yaml
-│   └── team_dominance.metricview.yaml
+│   ├── team_dominance.metricview.yaml
+│   ├── match_performance.metricview.yaml
+│   ├── player_match_performance.metricview.yaml
+│   ├── goalkeeper_match_performance.metricview.yaml
+│   └── comments.sql                # COMMENT ON COLUMN for 99 Metric View columns — re-run after any CREATE OR REPLACE VIEW on these (always wipes them)
 ├── ontology/
-│   ├── entities.sql                # worldcup.ontology.entity
-│   ├── relationships.sql           # worldcup.ontology.relationship
+│   ├── entities.sql                # mrlc-catalog.fifaworldcup_ontology.entity
+│   ├── relationships.sql           # mrlc-catalog.fifaworldcup_ontology.relationship
 │   ├── graph_build.py              # vertices + edges → GraphFrames
 │   └── functions/
 │       ├── tournament_path.sql     # UC function
 │       └── key_players.sql         # UC function
 ├── context/
-│   ├── concept_store.sql           # worldcup.context.concept
+│   ├── concept_store.sql           # mrlc-catalog.fifaworldcup_context.concept
 │   ├── policies.json               # governed definitions (best_team, weights)
 │   └── vector_index.py             # Vector Search index over concepts/policies
 ├── agent/
@@ -112,25 +117,60 @@ worldcupiq/
 
 | Source | Contents | Role |
 |---|---|---|
-| **FIFA official** | schedule, fixtures, results, groups, knockout bracket, venues (104 matches, 16 cities) | authoritative tournament metadata & keys |
 | **FIFA Training Centre-derived** | 21 tables · 104 matches · 48 teams · 1,277 players · lineups, events, passing networks, team/player stats, pressure, set plays | primary analytical foundation |
-| **Relational dataset** | matches, squads, players, xG, events, team stats, VAR | complementary / xG & VAR |
+| **Relational dataset** | matches, venues, squads, players, xG, events, team stats, VAR | matches & venues authority · xG & VAR |
 | **Historical World Cups** *(context)* | tournaments, matches, teams, players, goals, standings (2014–2026) | champion comparison over time |
 | **Pre-match predictions** *(context)* | win/draw/loss probabilities, model, timestamp | decision-intelligence / surprise analysis |
 
-Land raw CSV/JSON in `worldcup.bronze.landing` (a UC Volume), organized by source.
+> **Dropped: FIFA official (fifa.com pages).** There's no clean CSV/JSON feed behind those pages —
+> just tournament article pages, which would need manual scraping/transcription before they could
+> land anywhere. Rather than build and maintain a scraper for one source, `matches` and `venues`
+> are sourced from the **relational dataset** (`mominullptr/FIFA-World-Cup-2026-Dataset`), which
+> already has both as real files. `fifaworldcup_bronze_fifa_official` and
+> `bronze_pipeline_fifa_official` are removed accordingly.
+
+Land raw CSV/JSON in `mrlc-catalog.fifaworldcup_landing.raw_files` (a UC Volume), one folder per bronze table
+name — flat, no source subfolder. The source distinction lives at the schema level instead
+(see Catalog layout below), not in the file path.
+
+> **Ingestion mechanism:** Auto Loader (`cloudFiles`), not Lakeflow Connect. Lakeflow Connect's
+> GitHub pipeline connector syncs a GitHub org's own metadata (`repositories`, `pull_requests`,
+> `issues`, ...) into UC tables — it has no mechanism for landing arbitrary CSV/JSON files that
+> happen to be committed inside a repo, which is what several of these sources are. Auto Loader
+> reading from the landing volume is the correct fit here.
 
 ---
 
 ## 6. Data model
 
 ### Catalog layout
-`worldcup` catalog → schemas: `bronze` · `silver` · `gold` · `semantic` · `ontology` · `context`.
+`mrlc-catalog` — a shared catalog (other projects live in it too) — with every WorldCupIQ schema
+namespaced `fifaworldcup_<...>` to keep this project's objects grouped: `fifaworldcup_landing`
+(Volume only, no tables) · four bronze schemas, one per datasource
+(`fifaworldcup_bronze_fifa_training_centre` ·
+`fifaworldcup_bronze_relational` · `fifaworldcup_bronze_historical` ·
+`fifaworldcup_bronze_predictions`) · `fifaworldcup_silver` · `fifaworldcup_gold` ·
+`fifaworldcup_semantic` · `fifaworldcup_ontology` · `fifaworldcup_context`. See `conf/00_catalog.sql`.
 
-### Bronze (`worldcup.bronze`) — raw, 1:1 with source
-`fifa_matches, fifa_teams, fifa_players, venues, match_events, match_team_stats, match_player_stats, lineups, substitutions, goals, cards, attempts, passing_network, pressure, set_plays, aerial_control, goal_prevention, gk_distribution, player_physical, squads, var_events, hist_tournaments, hist_matches, hist_teams, hist_players, hist_goals, hist_standings, pre_match_prediction`
+### Bronze — raw, 1:1 with source, split by datasource schema
+| Schema | Tables |
+|---|---|
+| `mrlc-catalog.fifaworldcup_bronze_fifa_training_centre` | `fifa_teams, fifa_players, match_events, match_team_stats, match_player_stats, lineups, substitutions, goals, cards, attempts, passing_network, pressure, set_plays, aerial_control, goal_prevention, gk_distribution, player_physical` |
+| `mrlc-catalog.fifaworldcup_bronze_relational` | `matches, venues, squads, var_events` |
+| `mrlc-catalog.fifaworldcup_bronze_historical` | `hist_tournaments, hist_matches, hist_teams, hist_players, hist_goals, hist_standings` |
+| `mrlc-catalog.fifaworldcup_bronze_predictions` | `pre_match_prediction` |
 
-### Silver (`worldcup.silver`) — normalized, entity-resolved
+See `ingestion/lakeflow/bronze.py`'s `BRONZE_SOURCES` registry for the authoritative mapping.
+
+> **Why four pipelines, not one:** a Lakeflow pipeline publishes to exactly one `catalog.schema`,
+> set at the pipeline level — there's no supported per-table schema override. `databricks.yml`
+> deploys `bronze.py` and `bronze_github_parse.py` as four separate pipeline resources
+> (`bronze_pipeline_predictions` + 3 `parse_pipeline_<datasource>`), each with its own
+> `catalog`/`schema` and a `datasource_filter` in its `configuration` block that tells the shared
+> source file which subset of its registry to build. One scheduled job (`bronze_refresh`) triggers
+> all four, plus the GitHub Connect raw landing they depend on, daily.
+
+### Silver (`mrlc-catalog.fifaworldcup_silver`) — normalized, entity-resolved
 | Table | Grain |
 |---|---|
 | `match` | one row per match (104) |
@@ -169,7 +209,7 @@ pressures, recoveries, duels, cards
 match_id FK, team_id FK, passer_id FK, receiver_id FK, passes, progressive, xt_added
 ```
 
-### Gold (`worldcup.gold`) — star schema
+### Gold (`mrlc-catalog.fifaworldcup_gold`) — star schema
 **Facts:** `fact_match, fact_team_match, fact_player_match, fact_goal, fact_shot, fact_card, fact_substitution, fact_pass`
 **Dimensions:** `dim_tournament, dim_stage, dim_group, dim_team, dim_player, dim_venue, dim_country`
 **Aggregate (semantic foundation):** `fact_team_tournament`
@@ -201,13 +241,37 @@ Performance Dominance Score =
 + 0.15 × Chance Creation
 + 0.15 × Defensive Efficiency
 ```
-Component scores are min-max normalized across the 48 teams in `gold.fact_team_dominance`; the **weights live only in `semantic.team_dominance`** so the agent can never invent them. The context policy `best_team` points at this measure.
+Component scores are min-max normalized across the 48 teams in `gold.fact_team_dominance`. As actually built, the weighted composite is computed there too — `gold.py`'s `fact_team_dominance()` owns the 0.30/0.25/0.15/0.15/0.15 formula, not the Metric View YAML. `semantic.team_dominance` re-exposes that governed, already-weighted score (plus its five components) under stable measure names, so the governance guarantee still holds: nothing downstream of Gold can redefine the weights. The context policy `best_team` points at this measure.
+
+### Match-grain Metric Views
+
+Tournament-grain measures above answer "how good is this team across the whole World Cup." These three answer "what happened in this match" — sourced straight off the match-grain Gold facts, no new aggregation tables needed.
+
+**`semantic.match_performance`** — grain: team × match, source `gold.fact_team_match` joined to `gold.fact_match` for date/venue/stage context.
+- Result, Points (per-match: 3/1/0)
+- Goals For, Goals Against, Goal Difference
+- xG For, xG Against, **xG Differential** (`xg_for - xg_against`)
+- Shot Conversion (`goals_for/shots`), Shot Quality (`xg_for/shots`), Shot Accuracy (`shots_on_target/shots`)
+- Possession %, Corners, Fouls, Offsides, Pressures, Recoveries, Aerial Duels Won
+
+**`semantic.player_match_performance`** — grain: player × match, source `gold.fact_player_match`.
+- Goals, Shots, Shot Conversion (`goals/shots`)
+- Pass Completion % (`passes_completed/passes`), Progressive Passes
+- Recoveries, Duels
+- Distance Covered (km), Top Speed (km/h)
+
+**`semantic.goalkeeper_match_performance`** — grain: goalkeeper × match, source `gold.fact_goalkeeper_match`.
+- Shots Faced, Saves, Save Percentage
+
+None of these carry weighted/composite scores like Performance Dominance Score — they're governed vocabulary (consistent naming/formulas), not judgment calls, so there's nothing to keep out of the agent's hands the way the dominance weights are. `fact_pass` (passer→receiver edges) and `fact_match_event` (goals/cards/subs) stay as raw Gold facts, not Metric Views — they feed GraphFrames traversal (Phase 6) and the event timeline rather than aggregate measures.
+
+**Real constraint found deploying these three:** UC Metric View joins are single-hop from `source` only — a join's `on:` clause can't reference another join's alias (confirmed by `UNRESOLVED_COLUMN` errors chaining `dim_tournament`/`dim_stage`/`dim_venue` off the already-joined `fact_match` alias). Since `tournament_id`/`stage_id`/`venue_id` live only on `gold.fact_match`, not on `fact_team_match`/`fact_player_match`/`fact_goalkeeper_match` directly, these three views expose those as raw IDs rather than resolved names (`tournament_year`, `stage_name`, `venue_name` were dropped from the deployed YAML). Resolve those in the BI tool or a downstream query instead.
 
 ---
 
 ## 8. Ontology build (Databricks-native, no external graph DB)
 
-1. **Declare** entity/relationship tables in `worldcup.ontology` (the machine-readable spec).
+1. **Declare** entity/relationship tables in `mrlc-catalog.fifaworldcup_ontology` (the machine-readable spec).
 2. **Anchor** each relationship to a UC PK/FK constraint on silver/gold (enforced spine).
 3. **Materialize** vertices + typed edges from silver → wrap in **GraphFrames** for multi-hop traversal.
 4. **Expose** useful walks as UC functions: `ontology.tournament_path(team)`, `ontology.key_players(team)`.
@@ -229,7 +293,7 @@ Relationships: `HAS_STAGE, CONTAINS_GROUP, CONTAINS_TEAM, CONTAINS_MATCH, INVOLV
 
 ## 10. Genie space
 
-- **Datasets:** the Metric Views + `gold.fact_player_match` + dims (never bronze/silver event tables).
+- **Datasets:** the 5 Metric Views + dims (never bronze/silver event tables).
 - **Instructions:** paste the glossary + governing policy ("'best team' = highest Performance Dominance Score; prefer semantic measures over raw columns").
 - **Certified queries (trusted assets):** "Rank teams by Performance Dominance Score", "Spain vs Argentina dominance".
 - **Access:** grant the app service principal `CAN RUN` on the space and `SELECT` on `semantic`.
@@ -266,18 +330,18 @@ databricks-sql-connector
 
 `app.py` calls the **Genie Conversation API** via `databricks-sdk`, and for each question shows side by side: resolved definition (Vector Search), generated semantic SQL + result, ontology traversal path (UC function), and source lineage. Questions 1–4 route to Genie; Question 5 ("coach Spain") routes to the **agent endpoint**.
 
-Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the Genie space, `SELECT` on `worldcup.semantic`/`gold`, `EXECUTE` on ontology functions, and query on the Vector Search index.
+Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the Genie space, `SELECT` on `mrlc-catalog.fifaworldcup_semantic` / `mrlc-catalog.fifaworldcup_gold`, `EXECUTE` on ontology functions, and query on the Vector Search index.
 
 ---
 
 ## 13. Build order (suggested milestones)
 
-- [ ] **Phase 0 — Foundation:** workspace (Premium), UC metastore, ADLS + Access Connector, External Location, catalog `worldcup` + schemas + `landing` volume, groups/grants. → `conf/`
-- [ ] **Phase 1 — Land sources:** drop all source CSV/JSON into the volume by source folder.
-- [ ] **Phase 2 — Bronze:** Lakeflow pipeline, Auto Loader, 1:1 raw tables. → `ingestion/lakeflow/bronze.py`
-- [ ] **Phase 3 — Silver:** normalize, entity-resolve, declare PK/FK, DQ expectations. → `silver.py`
-- [ ] **Phase 4 — Gold:** star schema + `fact_team_tournament`. → `gold.py`
-- [ ] **Phase 5 — Semantic:** `fact_team_dominance` + two Metric Views. → `semantic/`
+- [x] **Phase 0 — Foundation:** workspace (Premium), UC metastore, shared catalog `mrlc-catalog` (created, owned by other projects too). Schemas + `fifaworldcup_landing` volume, groups/grants → `conf/`
+- [x] **Phase 1 — Land sources:** `predictions.csv` landed via Auto Loader; the 3 GitHub-sourced datasets sync automatically via Lakeflow Connect (no manual landing needed for those — `fifa_official` was dropped, see §5).
+- [x] **Phase 2 — Bronze:** Lakeflow pipeline, Auto Loader, 1:1 raw tables. → `ingestion/lakeflow/bronze.py`
+- [x] **Phase 3 — Silver:** normalize, entity-resolve, declare PK/FK, DQ expectations. → `silver.py` (28 tables, deployed and run against real bronze data; EAV-shaped fifa_training_centre stat tables — `team_key_stats`, `team_phases`, `team_set_plays`, `team_goalkeeping_distribution` — not yet pivoted into `match_team`, a follow-up once their metric label strings are sampled)
+- [x] **Phase 4 — Gold:** star schema (6 dims + 10 facts) + `fact_team_tournament` + `fact_team_dominance` (governed Performance Dominance Score). → `gold.py` (16 flows deployed and run against real Silver data)
+- [x] **Phase 5 — Semantic:** 5 Metric Views deployed to `mrlc-catalog.fifaworldcup_semantic` — `team_performance`, `team_dominance` (tournament grain), `match_performance`, `player_match_performance`, `goalkeeper_match_performance` (match grain). Verified live with `MEASURE()` queries against real Gold data. → `semantic/`
 - [ ] **Phase 6 — Ontology:** entity/relationship tables, GraphFrames, UC functions. → `ontology/`
 - [ ] **Phase 7 — Context:** concept store, policies, Vector Search index. → `context/`
 - [ ] **Phase 8 — Genie + Agent:** Genie space, agent tools + framework, MLflow eval. → `genie/`, `agent/`
