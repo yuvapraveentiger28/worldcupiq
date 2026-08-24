@@ -1,0 +1,11 @@
+# Normalize line endings for text files — LF in the repo, native (CRLF on
+# Windows) in the working tree. Prevents the LF/CRLF warning popup on Windows
+# clones and keeps diffs clean regardless of contributor OS.
+* text=auto eol=lf
+
+# Windows batch scripts genuinely want CRLF — leave them alone.
+*.cmd text eol=crlf
+
+# Binary — never line-ending-normalize, never diff as text.
+*.png binary
+*.drawio.png binary

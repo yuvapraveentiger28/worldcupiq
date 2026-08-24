@@ -1,0 +1,74 @@
+# Unity Catalog Metric View — governed outfield-player-per-match vocabulary.
+# Grain: player x match.
+# Illustrative blueprint — validate against your workspace's UC Metric View
+# YAML schema/version before deploying (README.md §11).
+#
+# Deploy: CREATE VIEW worldcupiq_catalog.semantic.player_match_performance
+#         WITH METRICS LANGUAGE YAML AS (this file's contents, dollar-quoted).
+
+version: 0.1
+
+source: "`worldcupiq_catalog`.gold.fact_player_match"
+
+joins:
+  - name: player
+    source: "`worldcupiq_catalog`.gold.dim_player"
+    on: source.player_id = player.player_id
+
+  - name: team
+    source: "`worldcupiq_catalog`.gold.dim_team"
+    on: source.team_id = team.team_id
+
+  - name: match
+    source: "`worldcupiq_catalog`.gold.fact_match"
+    on: source.match_id = match.match_id
+
+# NOTE: UC Metric View joins are single-hop from `source` only — a join's
+# `on:` clause can't reference another join's alias (confirmed by actually
+# deploying: chaining off `match.tournament_id` fails with
+# UNRESOLVED_COLUMN). tournament_id stays a raw ID sourced through the
+# `match` join rather than resolved to tournament_year here.
+
+dimensions:
+  - name: match_id
+    expr: source.match_id
+  - name: match_date
+    expr: match.match_date
+  - name: player_id
+    expr: source.player_id
+  - name: player_name
+    expr: player.name
+  - name: position_played
+    expr: source.position_played
+  - name: started
+    expr: source.started
+  - name: team_id
+    expr: source.team_id
+  - name: team_name
+    expr: team.name
+  - name: tournament_id
+    expr: match.tournament_id
+
+measures:
+  - name: goals
+    expr: SUM(source.goals)
+  - name: shots
+    expr: SUM(source.shots)
+  - name: shot_conversion
+    expr: SUM(source.goals) / NULLIF(SUM(source.shots), 0)
+  - name: passes
+    expr: SUM(source.passes)
+  - name: passes_completed
+    expr: SUM(source.passes_completed)
+  - name: pass_completion_pct
+    expr: SUM(source.passes_completed) / NULLIF(SUM(source.passes), 0)
+  - name: progressive_passes
+    expr: SUM(source.progressive_passes)
+  - name: recoveries
+    expr: SUM(source.recoveries)
+  - name: duels
+    expr: SUM(source.duels)
+  - name: distance_covered_km
+    expr: AVG(source.distance_covered_km)
+  - name: top_speed_kmh
+    expr: MAX(source.top_speed_kmh)

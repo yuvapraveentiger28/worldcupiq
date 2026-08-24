@@ -1,0 +1,70 @@
+# Unity Catalog Metric View — the governed Performance Dominance Score.
+# Grain: team x tournament, 1:1 with gold.fact_team_dominance.
+# Illustrative blueprint — validate against your workspace's UC Metric View
+# YAML schema/version before deploying (README.md §11).
+#
+# NOTE ON WEIGHTS: the README originally scoped this file as the sole home of
+# the 0.30/0.25/0.15/0.15/0.15 weighting formula. As actually built, gold.py's
+# fact_team_dominance() already computes the weighted composite score in the
+# Lakeflow pipeline itself (see ingestion/lakeflow/gold.py, the
+# performance_dominance_score column) — the weights live in Gold, not here.
+# This Metric View re-exposes that governed, already-weighted score (plus its
+# five normalized components) under stable measure names for Genie/the agent,
+# rather than recomputing the formula. Functionally equivalent governance
+# guarantee (nothing downstream can redefine the weights), different layer
+# than originally documented.
+#
+# Deploy: CREATE VIEW worldcupiq_catalog.semantic.team_dominance
+#         WITH METRICS LANGUAGE YAML AS (this file's contents, dollar-quoted).
+
+version: 0.1
+
+source: "`worldcupiq_catalog`.gold.fact_team_dominance"
+
+joins:
+  - name: team
+    source: "`worldcupiq_catalog`.gold.dim_team"
+    on: source.team_id = team.team_id
+
+  - name: tournament
+    source: "`worldcupiq_catalog`.gold.dim_tournament"
+    on: source.tournament_id = tournament.tournament_id
+
+dimensions:
+  - name: team_id
+    expr: source.team_id
+  - name: team_name
+    expr: team.name
+  - name: tournament_id
+    expr: source.tournament_id
+  - name: tournament_name
+    expr: tournament.name
+  - name: tournament_year
+    expr: tournament.year
+
+measures:
+  - name: results_score
+    expr: AVG(source.results_score)
+  - name: xg_differential_score
+    expr: AVG(source.xg_differential_score)
+  - name: shot_quality_score
+    expr: AVG(source.shot_quality_score)
+  - name: chance_creation_score
+    expr: AVG(source.chance_creation_score)
+  - name: defensive_efficiency_score
+    expr: AVG(source.defensive_efficiency_score)
+  - name: performance_dominance_score
+    expr: AVG(source.performance_dominance_score)
+
+# NOTE ON DESCRIPTIONS: the deployed com.databricks.sql.serde.v10.Column spec
+# only accepts {name, expr, window} — a `comment:` key here is rejected with
+# METRIC_VIEW_INVALID_VIEW_DEFINITION (confirmed by actually deploying it).
+# Field-level descriptions are applied post-deploy via COMMENT ON COLUMN in
+# semantic/comments.sql instead — and CREATE OR REPLACE VIEW wipes those
+# comments (confirmed), so comments.sql must be re-run after every redeploy
+# of this view.
+
+# The context policy `best_team` (README §9, Phase 7) resolves to:
+#   "highest performance_dominance_score, ties broken by final_rank"
+# — always queried through this Metric View, never gold.fact_team_dominance
+# directly, so the agent's answer is traceable through UC lineage.

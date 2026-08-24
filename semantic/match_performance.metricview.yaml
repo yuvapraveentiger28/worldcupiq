@@ -1,0 +1,89 @@
+# Unity Catalog Metric View — governed team-per-match vocabulary.
+# Grain: team x match (two rows per match, home + away perspective).
+# Illustrative blueprint — validate against your workspace's UC Metric View
+# YAML schema/version before deploying (README.md §11).
+#
+# Deploy: CREATE VIEW worldcupiq_catalog.semantic.match_performance
+#         WITH METRICS LANGUAGE YAML AS (this file's contents, dollar-quoted).
+
+version: 0.1
+
+source: "`worldcupiq_catalog`.gold.fact_team_match"
+
+joins:
+  - name: team
+    source: "`worldcupiq_catalog`.gold.dim_team"
+    on: source.team_id = team.team_id
+
+  - name: match
+    source: "`worldcupiq_catalog`.gold.fact_match"
+    on: source.match_id = match.match_id
+
+# NOTE: UC Metric View joins are single-hop from `source` only — a join's
+# `on:` clause can't reference another join's alias (confirmed by actually
+# deploying: chaining `on: match.tournament_id = tournament.tournament_id`
+# fails with UNRESOLVED_COLUMN, since `tournament` is only resolvable
+# against `source`, not against the `match` alias). So tournament/stage/venue
+# — all FKs that live on gold.fact_match, not on gold.fact_team_match itself
+# — stay as raw IDs sourced through the `match` join, not resolved to names.
+# Join stage/venue/tournament dims in the BI tool or a downstream query.
+
+dimensions:
+  - name: match_id
+    expr: source.match_id
+  - name: match_date
+    expr: match.match_date
+  - name: team_id
+    expr: source.team_id
+  - name: team_name
+    expr: team.name
+  - name: home_away
+    expr: source.home_away
+  - name: result
+    expr: source.result
+  - name: tournament_id
+    expr: match.tournament_id
+  - name: stage_id
+    expr: match.stage_id
+  - name: venue_id
+    expr: match.venue_id
+
+measures:
+  - name: points
+    expr: SUM(source.points)
+  - name: goals_for
+    expr: SUM(source.goals_for)
+  - name: goals_against
+    expr: SUM(source.goals_against)
+  - name: goal_difference
+    expr: SUM(source.goals_for) - SUM(source.goals_against)
+  - name: xg_for
+    expr: SUM(source.xg_for)
+  - name: xg_against
+    expr: SUM(source.xg_against)
+  - name: xg_differential
+    expr: SUM(source.xg_for) - SUM(source.xg_against)
+  - name: shot_conversion
+    expr: SUM(source.goals_for) / NULLIF(SUM(source.shots), 0)
+  - name: shot_quality
+    expr: SUM(source.xg_for) / NULLIF(SUM(source.shots), 0)
+  - name: shot_accuracy
+    expr: SUM(source.shots_on_target) / NULLIF(SUM(source.shots), 0)
+  - name: possession_pct
+    expr: AVG(source.possession_pct)
+  - name: shots
+    expr: SUM(source.shots)
+  - name: shots_on_target
+    expr: SUM(source.shots_on_target)
+  - name: corners
+    expr: SUM(source.corners)
+  - name: fouls
+    expr: SUM(source.fouls)
+  - name: offsides
+    expr: SUM(source.offsides)
+  - name: pressures
+    expr: SUM(source.pressures)
+  - name: recoveries
+    expr: SUM(source.recoveries)
+  - name: aerial_duels_won
+    expr: SUM(source.aerial_duels)

@@ -1,0 +1,89 @@
+# Unity Catalog Metric View — governed team-tournament vocabulary.
+# Grain: team x tournament (one row per team per World Cup).
+# Illustrative blueprint — validate against your workspace's UC Metric View
+# YAML schema/version before deploying (README.md §11).
+#
+# Deploy: CREATE VIEW worldcupiq_catalog.semantic.team_performance
+#         WITH METRICS LANGUAGE YAML AS (this file's contents, dollar-quoted).
+
+version: 0.1
+
+source: "`worldcupiq_catalog`.gold.fact_team_tournament"
+
+joins:
+  - name: team
+    source: "`worldcupiq_catalog`.gold.dim_team"
+    on: source.team_id = team.team_id
+
+  - name: tournament
+    source: "`worldcupiq_catalog`.gold.dim_tournament"
+    on: source.tournament_id = tournament.tournament_id
+
+dimensions:
+  - name: team_id
+    expr: source.team_id
+  - name: team_name
+    expr: team.name
+  - name: team_code
+    expr: team.code
+  - name: confederation_name
+    expr: team.confederation_name
+  - name: tournament_id
+    expr: source.tournament_id
+  - name: tournament_name
+    expr: tournament.name
+  - name: tournament_year
+    expr: tournament.year
+  - name: group_id
+    expr: source.group_id
+  - name: final_rank
+    expr: source.final_rank
+  - name: host_performance
+    expr: source.host_performance
+
+measures:
+  - name: matches
+    expr: SUM(source.matches)
+  - name: wins
+    expr: SUM(source.wins)
+  - name: draws
+    expr: SUM(source.draws)
+  - name: losses
+    expr: SUM(source.losses)
+  - name: points
+    expr: SUM(source.points)
+  - name: goals_for
+    expr: SUM(source.goals_for)
+  - name: goals_against
+    expr: SUM(source.goals_against)
+  - name: goal_difference
+    expr: SUM(source.goals_for) - SUM(source.goals_against)
+  - name: xg_for
+    expr: SUM(source.xg)
+  - name: xg_against
+    expr: SUM(source.xga)
+  - name: xg_differential
+    expr: SUM(source.xg) - SUM(source.xga)
+  - name: shot_conversion
+    expr: SUM(source.goals_for) / NULLIF(SUM(source.shots), 0)
+  - name: shot_quality
+    expr: SUM(source.xg) / NULLIF(SUM(source.shots), 0)
+  - name: defensive_efficiency
+    expr: SUM(source.goals_against) / NULLIF(SUM(source.xga), 0)
+  - name: chance_creation
+    expr: SUM(source.xg) / NULLIF(SUM(source.matches), 0)
+  - name: possession_pct
+    expr: AVG(source.possession)
+  - name: shots
+    expr: SUM(source.shots)
+  - name: shots_on_target
+    expr: SUM(source.shots_on_target)
+  - name: shot_accuracy
+    expr: SUM(source.shots_on_target) / NULLIF(SUM(source.shots), 0)
+  - name: pressures
+    expr: SUM(source.pressures)
+
+# NOTE: Pass Completion was originally scoped here but gold.fact_team_tournament
+# doesn't aggregate passes/passes_completed at team-tournament grain (only
+# gold.fact_player_match carries those columns). Pass completion is exposed at
+# player-match grain instead — see player_match_performance.metricview.yaml.

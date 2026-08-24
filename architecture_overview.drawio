@@ -1,0 +1,116 @@
+<mxfile host="app.diagrams.net" modified="2026-08-23T00:00:00.000Z" agent="drawio-skill" version="24.0.0" type="device">
+  <diagram name="WorldCupIQ Overview" id="worldcupiq-overview">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="WorldCupIQ — Architecture Overview" style="text;html=1;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Sources to agent — solid border = built, dashed = planned, orange = current frontier" style="text;html=1;fontSize=12;fontColor=#666666;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="50" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- 1. Data Sources (external) -->
+        <mxCell id="n1" value="&lt;b&gt;Data Sources&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#666666&quot;&gt;4 feeds &amp;middot; not yet landed&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 2. Ingestion (built) -->
+        <mxCell id="n2" value="&lt;b&gt;Ingestion&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#666666&quot;&gt;Auto Loader + GitHub Connect&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="260" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 3. Bronze (built) -->
+        <mxCell id="n3" value="&lt;b&gt;Bronze&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#666666&quot;&gt;4 schemas &amp;middot; 60 tables&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 4. Silver (built) -->
+        <mxCell id="n4" value="&lt;b&gt;Silver&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#666666&quot;&gt;27 tables &amp;middot; entity-resolved&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="700" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 5. Gold (built, current frontier -> accent) -->
+        <mxCell id="n5" value="&lt;b&gt;Gold&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#7a4a00&quot;&gt;16 tables &amp;middot; star schema&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="920" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 6. Semantic / Metric Views (built) -->
+        <mxCell id="n6" value="&lt;b&gt;Semantic&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#3a6b3a&quot;&gt;5 Metric Views &amp;middot; deployed&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 7. Knowledge Layer (planned) -->
+        <mxCell id="n7" value="&lt;b&gt;Knowledge Layer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#888888&quot;&gt;Ontology + Context&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 8. Genie (planned) -->
+        <mxCell id="n8" value="&lt;b&gt;Genie&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#888888&quot;&gt;NL &amp;rarr; SQL&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="1580" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- 9. Agent & App (planned) -->
+        <mxCell id="n9" value="&lt;b&gt;Agent &amp;amp; App&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot; color=&quot;#888888&quot;&gt;Mosaic AI &amp;middot; Streamlit&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;fontFamily=Helvetica;fontSize=12;align=center;verticalAlign=middle;spacing=6;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="1800" y="120" width="170" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Edges: linear chain -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#333333;strokeWidth=1.5;endArrow=block;" edge="1" parent="1" source="n1" target="n2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#333333;strokeWidth=1.5;endArrow=block;" edge="1" parent="1" source="n2" target="n3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#333333;strokeWidth=1.5;endArrow=block;" edge="1" parent="1" source="n3" target="n4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#333333;strokeWidth=1.5;endArrow=block;" edge="1" parent="1" source="n4" target="n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#333333;strokeWidth=1.5;endArrow=block;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#999999;strokeWidth=1.5;dashed=1;endArrow=block;" edge="1" parent="1" source="n6" target="n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#999999;strokeWidth=1.5;dashed=1;endArrow=block;" edge="1" parent="1" source="n7" target="n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#999999;strokeWidth=1.5;dashed=1;endArrow=block;" edge="1" parent="1" source="n8" target="n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="leg1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="260" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1t" value="Built — current frontier" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="70" y="260" width="180" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="270" y="260" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2t" value="Built" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="300" y="260" width="120" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="440" y="260" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3t" value="Built — semantic / governed layer" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="470" y="260" width="240" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="720" y="260" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4t" value="Planned — not started" style="text;html=1;fontSize=12;align=left;verticalAlign=middle;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="750" y="260" width="180" height="24" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

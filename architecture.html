@@ -1,0 +1,2954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorldCupIQ Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f4f4f4;
+      --color-paper2:  #efe8e5;
+      --color-ink:     #312e2d;
+      --color-muted:   #585554;
+      --color-soft:    #8e8e8e;
+      --color-accent:  #f7901d;
+      --color-link:    #3d6f96;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; margin: 0 auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      color: var(--color-muted);
+      margin-bottom: 1.5rem;
+      max-width: 760px;
+    }
+
+    /* ---------- Tabs ---------- */
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.75rem;
+      border-bottom: 1px solid rgba(49,46,45,0.14);
+      margin-bottom: 2rem;
+    }
+
+    .tab {
+      appearance: none;
+      background: none;
+      border: none;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding: 0 0.1rem 0.8rem;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s ease;
+    }
+
+    .tab:hover { color: var(--color-ink); }
+
+    .tab.active { color: var(--color-ink); }
+
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 2px;
+      background: var(--color-accent);
+    }
+
+    .tab .count {
+      color: var(--color-soft);
+      font-weight: 400;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: fade-in 0.15s ease; }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    h2 {
+      font-family: var(--font-serif);
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-intro {
+      color: var(--color-muted);
+      font-size: 0.87rem;
+      line-height: 1.5;
+      max-width: 780px;
+      margin-bottom: 1.75rem;
+    }
+
+    svg { width: 100%; min-width: 900px; display: block; }
+
+    .node-link { cursor: pointer; }
+    .node-link:focus { outline: none; }
+    .node-link:hover .node-box,
+    .node-link:focus-visible .node-box { stroke-width: 1.8; }
+    .node-link:hover .node-hint,
+    .node-link:focus-visible .node-hint { opacity: 1; }
+    .node-hint { opacity: 0; transition: opacity 0.15s ease; }
+
+    /* ---------- Cards (overview) ---------- */
+    .cards {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 0.9fr 1fr;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .cards { grid-template-columns: 1fr 1fr; }
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 6px;
+      padding: 1.25rem;
+    }
+
+    .card .eyebrow { margin-bottom: 0.75rem; }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .card-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .card-dot.coral { background: var(--color-accent); }
+    .card-dot.ink { background: var(--color-ink); }
+    .card-dot.muted { background: var(--color-muted); }
+    .card-dot.link { background: var(--color-link); }
+
+    .card h3 {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--color-ink);
+    }
+
+    .card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .card li {
+      font-size: 0.8rem;
+      color: var(--color-muted);
+      line-height: 1.4;
+      padding-left: 0.9rem;
+      position: relative;
+    }
+
+    .card li::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      color: rgba(49,46,45,0.30);
+    }
+
+    /* ---------- Detail pages ---------- */
+    .status-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .status-pill.built  { color: var(--color-ink);   border: 1px solid rgba(49,46,45,0.40); }
+    .status-pill.focal  { color: var(--color-accent); border: 1px solid rgba(247,144,29,0.45); }
+    .status-pill.pending{ color: var(--color-soft);  border: 1px solid rgba(142,142,142,0.5); }
+    .status-pill.planned{ color: var(--color-soft);  border: 1px solid rgba(142,142,142,0.5); }
+    .status-pill.review { color: var(--color-link);  border: 1px solid rgba(61,111,150,0.45); }
+
+    .review-note {
+      background: rgba(61,111,150,0.06);
+      border: 1px solid rgba(61,111,150,0.25);
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+    .review-note h3 { font-size: 0.85rem; font-weight: 600; color: var(--color-ink); margin-bottom: 0.5rem; }
+    .review-note ol { padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .review-note li { font-size: 0.82rem; color: var(--color-muted); line-height: 1.5; }
+    .review-note li strong { color: var(--color-ink); }
+
+    .cluster-heading {
+      font-family: var(--font-sans);
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--color-ink);
+      margin: 2rem 0 0.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(49,46,45,0.12);
+    }
+    .cluster-heading:first-of-type { border-top: none; padding-top: 0; margin-top: 0.5rem; }
+    .cluster-heading .count { font-weight: 400; color: var(--color-muted); font-size: 0.85rem; }
+
+    .mermaid-wrap {
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 8px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+    .mermaid-wrap .mermaid { min-width: 1600px; }
+    .mermaid-wrap .mermaid-loading {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--color-muted);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .map-table td.src-group {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      background: rgba(49,46,45,0.03);
+      border-top: 1px solid rgba(49,46,45,0.15);
+    }
+
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 6px;
+      overflow: hidden;
+      font-size: 0.82rem;
+      margin-bottom: 1.75rem;
+    }
+    .detail-table caption {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      padding: 0.9rem 1rem 0.4rem;
+    }
+    .detail-table th {
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 0.64rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      border-bottom: 1px solid rgba(49,46,45,0.15);
+      padding: 0.6rem 0.9rem;
+      background: rgba(49,46,45,0.02);
+    }
+    .detail-table td {
+      padding: 0.65rem 0.9rem;
+      border-bottom: 1px solid rgba(49,46,45,0.08);
+      vertical-align: top;
+      color: var(--color-ink);
+      line-height: 1.45;
+    }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .detail-table td.mono, .mono { font-family: var(--font-mono); font-size: 0.78rem; color: var(--color-muted); }
+    .detail-table a { color: var(--color-link); text-decoration: none; border-bottom: 1px solid rgba(61,111,150,0.35); }
+    .detail-table a:hover { border-color: var(--color-link); }
+
+    .detail-card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    @media (max-width: 900px) {
+      .detail-card-grid { grid-template-columns: 1fr; }
+    }
+    .detail-card-grid .card h3 { margin-bottom: 0.15rem; }
+    .detail-card-grid .card .mono { display: block; margin-bottom: 0.75rem; }
+
+    details.schema-block {
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 6px;
+      margin-bottom: 0.75rem;
+    }
+    .screenshot-frame {
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 6px;
+      padding: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .screenshot-frame img { display: block; width: 100%; height: auto; border-radius: 4px; }
+    .screenshot-caption { font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-soft); margin-top: 0.5rem; }
+    .screenshot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 720px) { .screenshot-grid { grid-template-columns: 1fr; } }
+    details.schema-block[open] { padding-bottom: 0.25rem; }
+    details.schema-block summary {
+      cursor: pointer;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      list-style: none;
+    }
+    details.schema-block summary::-webkit-details-marker { display: none; }
+    details.schema-block summary::marker { content: ""; }
+    .schema-summary-left { display: flex; flex-direction: column; gap: 0.2rem; }
+    .schema-name { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 500; color: var(--color-ink); }
+    .schema-desc { font-size: 0.76rem; color: var(--color-muted); }
+    details.schema-block .schema-body {
+      padding: 0 1.1rem 1.1rem;
+      border-top: 1px solid rgba(49,46,45,0.08);
+      margin-top: 0.25rem;
+      padding-top: 0.9rem;
+    }
+    .schema-meta { font-size: 0.78rem; color: var(--color-muted); margin-bottom: 0.75rem; }
+    .schema-meta a { color: var(--color-link); }
+    .table-chip-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .table-chip {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: rgba(49,46,45,0.04);
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      color: var(--color-ink);
+    }
+
+    .phase-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.75rem; }
+    .phase-row {
+      display: grid;
+      grid-template-columns: 90px 200px 1fr 220px;
+      gap: 1rem;
+      align-items: start;
+      background: #ffffff;
+      border: 1px solid rgba(49,46,45,0.12);
+      border-radius: 6px;
+      padding: 0.85rem 1rem;
+      font-size: 0.8rem;
+    }
+    @media (max-width: 900px) {
+      .phase-row { grid-template-columns: 1fr; }
+    }
+    .phase-num { font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-soft); }
+    .phase-name { font-weight: 600; }
+    .phase-desc { color: var(--color-muted); }
+    .phase-desc a.phase-jump { color: var(--color-link); text-decoration: none; border-bottom: 1px solid rgba(61,111,150,0.35); }
+    .phase-desc a.phase-jump:hover { border-color: var(--color-link); }
+    .phase-path { font-family: var(--font-mono); font-size: 0.74rem; color: var(--color-muted); }
+
+    .colophon {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--color-muted);
+      border-top: 1px solid rgba(49,46,45,0.12);
+      margin-top: 2rem;
+      padding-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · WorldCupIQ · build status</p>
+    <h1>What's built so far</h1>
+    <p class="subtitle">Unity Catalog foundation, the 60-table Bronze layer, the 27-table Silver layer, the 16-table Gold star schema, and 5 Unity Catalog Metric Views are built, deployed, and populated with real data via the Asset Bundle. Bronze ingestion is dual-path: Auto Loader has run natively; Lakeflow Connect for GitHub is still blocked pending admin access, so its 3 bronze schemas were populated by a one-time migration instead — see Data Sources / Ingestion tabs. Ontology through the Streamlit app are scaffolded in the repo layout but not yet built. Click any block in the diagram — or a tab below — for the underlying repos, schemas, tables, and pipelines.</p>
+
+    <nav class="tabs" role="tablist" aria-label="Architecture sections">
+      <button class="tab active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview">Overview</button>
+      <button class="tab" data-tab="sources" role="tab" aria-selected="false" aria-controls="tab-sources">Data Sources</button>
+      <button class="tab" data-tab="ingestion" role="tab" aria-selected="false" aria-controls="tab-ingestion">Ingestion</button>
+      <button class="tab" data-tab="bronze" role="tab" aria-selected="false" aria-controls="tab-bronze">Bronze <span class="count">(60 tables)</span></button>
+      <button class="tab" data-tab="silver" role="tab" aria-selected="false" aria-controls="tab-silver">Silver Model <span class="count">(27 tables)</span></button>
+      <button class="tab" data-tab="gold" role="tab" aria-selected="false" aria-controls="tab-gold">Gold Model <span class="count">(16 tables)</span></button>
+      <button class="tab" data-tab="semantic" role="tab" aria-selected="false" aria-controls="tab-semantic">Semantic Model <span class="count">(5 views)</span></button>
+      <button class="tab" data-tab="ontology" role="tab" aria-selected="false" aria-controls="tab-ontology">Knowledge Layer <span class="count">(in progress)</span></button>
+      <button class="tab" data-tab="planned" role="tab" aria-selected="false" aria-controls="tab-planned">Planned</button>
+    </nav>
+
+    <!-- ============================================================ -->
+    <!-- OVERVIEW -->
+    <!-- ============================================================ -->
+    <section id="tab-overview" class="tab-panel active">
+      <svg viewBox="0 0 1200 528" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="worldcupiq-architecture-title worldcupiq-architecture-desc">
+        <title id="worldcupiq-architecture-title">WorldCupIQ build status — sources to agent</title>
+        <desc id="worldcupiq-architecture-desc">Architecture diagram showing current build progress in three zones: an external Data Sources feed and a built Ingestion layer on the left, three stacked built Lakehouse stages — Bronze, Silver, and Gold — in the middle, and three not-yet-built Knowledge Layer, Genie, and Agent/App nodes on the right, dashed to mark them as planned. Every block links to a detail tab.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#585554"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f7901d"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#3d6f96"/></marker>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#f4f4f4"/>
+
+        <!-- Zones (bg, drawn first) -->
+        <rect x="40" y="48" width="240" height="372" rx="8" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.10)" stroke-width="0.8"/>
+        <rect x="340" y="48" width="280" height="372" rx="8" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.10)" stroke-width="0.8"/>
+        <rect x="680" y="48" width="480" height="372" rx="8" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.10)" stroke-width="0.8"/>
+
+        <rect x="100" y="52" width="120" height="12" fill="#f4f4f4"/>
+        <text x="160" y="60" fill="rgba(49,46,45,0.45)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">SOURCES &amp; INGESTION</text>
+
+        <rect x="432" y="52" width="96" height="12" fill="#f4f4f4"/>
+        <text x="480" y="60" fill="rgba(49,46,45,0.45)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">LAKEHOUSE</text>
+
+        <rect x="852" y="52" width="136" height="12" fill="#f4f4f4"/>
+        <text x="920" y="60" fill="rgba(49,46,45,0.45)" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">KNOWLEDGE &amp; AGENT</text>
+
+        <!-- Arrows (drawn before nodes) — solid = built path, dashed = not yet connected/built -->
+        <line x1="160" y1="160" x2="160" y2="200" stroke="#585554" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <path d="M260,240 H302 Q310,240 310,232 V128 Q310,120 318,120 H360" fill="none" stroke="#585554" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <line x1="480" y1="160" x2="480" y2="200" stroke="#585554" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="480" y1="280" x2="480" y2="320" stroke="#585554" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <path d="M600,360 H642 Q650,360 650,352 V128 Q650,120 658,120 H700" fill="none" stroke="#585554" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+        <line x1="900" y1="120" x2="940" y2="120" stroke="#585554" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+        <path d="M800,160 H880 Q888,160 888,168 V200" fill="none" stroke="#585554" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <path d="M1040,160 H960 Q952,160 952,168 V200" fill="none" stroke="#585554" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+
+        <!-- Nodes (each wrapped in <a> — click jumps to its detail tab) -->
+
+        <!-- A1 Data Sources (external) -->
+        <a href="#sources" class="node-link" aria-label="Open Data Sources detail">
+          <title>Data Sources — 4 feeds, view detail →</title>
+          <rect class="node-box" x="60" y="80" width="200" height="80" rx="6" fill="rgba(49,46,45,0.03)" stroke="rgba(49,46,45,0.30)" stroke-width="1"/>
+          <g transform="translate(76,96)" stroke="#585554" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.657 18c-2.572 0 -4.657 -2.007 -4.657 -4.483c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99c1.913 0 3.464 1.56 3.464 3.486c0 1.927 -1.551 3.487 -3.465 3.487h-11.878" /></g>
+          <rect x="204" y="88" width="48" height="12" rx="2" fill="transparent" stroke="rgba(49,46,45,0.40)" stroke-width="0.8"/>
+          <text x="228" y="97" fill="rgba(49,46,45,0.8)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">SOURCE</text>
+          <text x="108" y="116" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Data Sources</text>
+          <text x="76" y="140" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">4 feeds — landed (60 bronze tables)</text>
+          <text class="node-hint" x="76" y="153" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- A2 Ingestion (backend, built) -->
+        <a href="#ingestion" class="node-link" aria-label="Open Ingestion detail">
+          <title>Ingestion — Auto Loader + GitHub Connect, view detail →</title>
+          <rect class="node-box" x="60" y="200" width="200" height="80" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+          <g transform="translate(76,216)" stroke="#312e2d" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a8 4 0 1 0 16 0a8 4 0 1 0 -16 0" /> <path d="M4 7c0 .664 .088 1.324 .263 1.965l2.737 10.035c.5 1.5 2.239 2 5 2s4.5 -.5 5 -2c.333 -1 1.246 -4.345 2.737 -10.035a7.45 7.45 0 0 0 .263 -1.965" /></g>
+          <rect x="212" y="208" width="40" height="12" rx="2" fill="transparent" stroke="rgba(49,46,45,0.40)" stroke-width="0.8"/>
+          <text x="232" y="217" fill="#312e2d" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUILT</text>
+          <text x="108" y="236" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Ingestion</text>
+          <text x="76" y="260" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">Auto Loader + GitHub Connect</text>
+          <text class="node-hint" x="76" y="273" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- B1 Bronze (built) -->
+        <a href="#bronze" class="node-link" aria-label="Open Bronze detail">
+          <title>Bronze — 4 schemas, 60 tables, view detail →</title>
+          <rect class="node-box" x="360" y="80" width="240" height="80" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+          <g transform="translate(376,96)" stroke="#312e2d" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0" /> <path d="M4 6v6a8 3 0 0 0 16 0v-6" /> <path d="M4 12v6a8 3 0 0 0 16 0v-6" /></g>
+          <rect x="552" y="88" width="40" height="12" rx="2" fill="transparent" stroke="rgba(49,46,45,0.40)" stroke-width="0.8"/>
+          <text x="572" y="97" fill="#312e2d" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUILT</text>
+          <text x="408" y="116" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Bronze</text>
+          <text x="376" y="140" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">4 schemas · bronze_*</text>
+          <text class="node-hint" x="376" y="153" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- B2 Silver (built) -->
+        <a href="#silver" class="node-link" aria-label="Open Silver Model detail">
+          <title>Silver — built, 27 tables, view detail →</title>
+          <rect class="node-box" x="360" y="200" width="240" height="80" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+          <g transform="translate(376,216)" stroke="#312e2d" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" /> <path d="M21 21l-6 -6" /></g>
+          <rect x="548" y="208" width="40" height="12" rx="2" fill="transparent" stroke="rgba(49,46,45,0.40)" stroke-width="0.8"/>
+          <text x="568" y="217" fill="#312e2d" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUILT</text>
+          <text x="408" y="236" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Silver</text>
+          <text x="376" y="260" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">27 tables · entity-resolved</text>
+          <text class="node-hint" x="376" y="273" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- B3 Gold (focal, built — current frontier) -->
+        <a href="#gold" class="node-link" aria-label="Open Gold Model detail">
+          <title>Gold — built, 16 tables, view detail →</title>
+          <rect class="node-box" x="360" y="320" width="240" height="80" rx="6" fill="rgba(247,144,29,0.12)" stroke="#f7901d" stroke-width="1.2"/>
+          <g transform="translate(376,336)" stroke="#f7901d" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.008v-8.018a1.98 1.98 0 0 0 -1 -1.717l-7 -4.008a2.016 2.016 0 0 0 -2 0l-7 4.008c-.619 .355 -1 1.01 -1 1.718v8.018c0 .709 .381 1.363 1 1.717l7 4.008a2.016 2.016 0 0 0 2 0l7 -4.008c.619 -.355 1 -1.01 1 -1.718z" /> <path d="M12 12v6" /> <path d="M12 12l6.5 -3.75" /> <path d="M12 12l-6.5 -3.75" /></g>
+          <rect x="548" y="328" width="40" height="12" rx="2" fill="transparent" stroke="rgba(247,144,29,0.40)" stroke-width="0.8"/>
+          <text x="568" y="337" fill="rgba(247,144,29,0.9)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">BUILT</text>
+          <text x="408" y="356" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Gold</text>
+          <text x="376" y="380" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">16 tables · star schema (6 dims + 10 facts)</text>
+          <text class="node-hint" x="376" y="393" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- C1 Knowledge Layer (mixed: semantic built, ontology in progress, context planned) -->
+        <a href="#ontology" class="node-link" aria-label="Open Knowledge Layer detail">
+          <title>Knowledge Layer — semantic built, ontology in progress →</title>
+          <rect class="node-box" x="700" y="80" width="200" height="80" rx="6" fill="rgba(61,111,150,0.04)" stroke="rgba(61,111,150,0.40)" stroke-width="1" stroke-dasharray="4,3"/>
+          <g transform="translate(716,96)" stroke="#3d6f96" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2l0 -4" /> <path d="M12 2v2" /> <path d="M9 12v9" /> <path d="M15 12v9" /> <path d="M5 16l4 -2" /> <path d="M15 14l4 2" /> <path d="M9 18h6" /> <path d="M10 8v.01" /> <path d="M14 8v.01" /></g>
+          <rect x="828" y="88" width="64" height="12" rx="2" fill="transparent" stroke="rgba(61,111,150,0.45)" stroke-width="0.8"/>
+          <text x="860" y="97" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">IN PROGRESS</text>
+          <text x="748" y="116" fill="#585554" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Knowledge Layer</text>
+          <text x="716" y="140" fill="#8e8e8e" font-size="8" font-family="'Geist Mono', monospace">Semantic done · Ontology WIP</text>
+          <text class="node-hint" x="716" y="153" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW DETAIL →</text>
+        </a>
+
+        <!-- C2 Genie (planned) -->
+        <a href="#planned" class="node-link" aria-label="Open Planned detail">
+          <title>Genie — not started, view plan →</title>
+          <rect class="node-box" x="940" y="80" width="200" height="80" rx="6" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+          <g transform="translate(956,96)" stroke="#8e8e8e" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 12v.01" /> <path d="M3 21h18" /> <path d="M5 21v-16a2 2 0 0 1 2 -2h6m4 10.5v7.5" /> <path d="M21 7h-7m3 -3l-3 3l3 3" /></g>
+          <rect x="1080" y="88" width="52" height="12" rx="2" fill="transparent" stroke="rgba(142,142,142,0.5)" stroke-width="0.8"/>
+          <text x="1106" y="97" fill="#8e8e8e" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PLANNED</text>
+          <text x="988" y="116" fill="#585554" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Genie</text>
+          <text x="956" y="140" fill="#8e8e8e" font-size="8" font-family="'Geist Mono', monospace">NL → SQL · Conversation API</text>
+          <text class="node-hint" x="956" y="153" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW PLAN →</text>
+        </a>
+
+        <!-- C3 Agent & App (planned) -->
+        <a href="#planned" class="node-link" aria-label="Open Planned detail">
+          <title>Agent &amp; App — not started, view plan →</title>
+          <rect class="node-box" x="820" y="200" width="200" height="80" rx="6" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
+          <g transform="translate(836,216)" stroke="#8e8e8e" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1v-10" /> <path d="M7 20h10" /> <path d="M9 16v4" /> <path d="M15 16v4" /></g>
+          <rect x="960" y="208" width="52" height="12" rx="2" fill="transparent" stroke="rgba(142,142,142,0.5)" stroke-width="0.8"/>
+          <text x="986" y="217" fill="#8e8e8e" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.08em">PLANNED</text>
+          <text x="868" y="236" fill="#585554" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Agent &amp; App</text>
+          <text x="836" y="260" fill="#8e8e8e" font-size="8" font-family="'Geist Mono', monospace">Mosaic AI Agent · Streamlit</text>
+          <text class="node-hint" x="836" y="273" fill="#3d6f96" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.04em">VIEW PLAN →</text>
+        </a>
+
+        <!-- Legend -->
+        <line x1="40" y1="460" x2="1160" y2="460" stroke="rgba(49,46,45,0.10)" stroke-width="0.8"/>
+        <text x="40" y="476" fill="#585554" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+
+        <rect x="40" y="484" width="16" height="16" fill="rgba(247,144,29,0.12)" stroke="#f7901d" stroke-width="1.2"/>
+        <text x="64" y="496" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Built — current frontier</text>
+
+        <rect x="300" y="484" width="16" height="16" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+        <text x="324" y="496" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Built</text>
+
+        <rect x="440" y="484" width="16" height="16" fill="rgba(49,46,45,0.02)" stroke="rgba(49,46,45,0.30)" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="464" y="496" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Planned — not started</text>
+
+        <rect x="700" y="484" width="16" height="16" fill="rgba(49,46,45,0.03)" stroke="rgba(49,46,45,0.30)" stroke-width="1"/>
+        <text x="724" y="496" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">External source</text>
+      </svg>
+
+      <div class="cards">
+        <div class="card">
+          <p class="eyebrow">Unity Catalog</p>
+          <div class="card-header"><span class="card-dot coral"></span><h3>Foundation — built</h3></div>
+          <ul>
+            <li>11 schemas created in worldcupiq_catalog (conf/00_catalog.sql)</li>
+            <li>landing.raw_files volume — Auto Loader source</li>
+            <li>Schemas left unprefixed (bronze_&lt;source&gt;, silver, gold, ...) — worldcupiq_catalog itself is the sharing boundary, not a schema-name prefix</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Access control</p>
+          <div class="card-header"><span class="card-dot muted"></span><h3>Grants — planned</h3></div>
+          <ul>
+            <li>01_grants.sql not yet written</li>
+            <li>UC groups + app service principal — not started</li>
+            <li>Genie / agent scoping deferred to Phase 8</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Scheduling</p>
+          <div class="card-header"><span class="card-dot ink"></span><h3>Orchestration — built</h3></div>
+          <ul>
+            <li>bronze_refresh job, daily trigger (databricks.yml)</li>
+            <li>Auto Loader (1 source) + GitHub Connect (3 sources) + 3 parse pipelines</li>
+            <li>Parse tasks depend on refresh_github_raw completing first</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Quality</p>
+          <div class="card-header"><span class="card-dot link"></span><h3>Evaluation — planned</h3></div>
+          <ul>
+            <li>MLflow tracing — not started</li>
+            <li>Agent registration in Unity Catalog — not started</li>
+            <li>Certified Genie queries — not started</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- DATA SOURCES -->
+    <!-- ============================================================ -->
+    <section id="tab-sources" class="tab-panel">
+      <h2>Data sources</h2>
+      <p class="section-intro">Four governed feeds. Three are GitHub repos forked into the <span class="mono">yuvapraveentiger28</span> GitHub organization (the Lakeflow Connect GitHub connector requires an org, not a personal account — it calls <span class="mono">/orgs/{name}/repos</span>, which 404s on a personal account). All four have landed. <span class="mono">predictions</span> ran natively through Auto Loader. The 3 GitHub-sourced schemas were migrated in one shot from a prior workspace where <span class="mono">github-fifaworldcupiq</span> was already connected — this workspace's admin hasn't yet granted the access needed to create that connection here, so <span class="mono">github_ingestion_pipeline</span> itself is still pending (see Ingestion tab); the data landed, the live connector hasn't run on this workspace yet.</p>
+
+      <table class="detail-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Origin</th>
+            <th>Tables</th>
+            <th>Status</th>
+            <th>Ingestion path</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>FIFA Training Centre-derived</strong><br><span class="mono">fifa_training_centre</span><br><span style="font-size:0.72rem;color:var(--color-soft);">analytical foundation</span></td>
+            <td>
+              <a href="https://github.com/Alamyy/Worldcup26" target="_blank" rel="noopener">Alamyy/Worldcup26</a> (original)<br>
+              → forked to <a href="https://github.com/yuvapraveentiger28/Worldcup26" target="_blank" rel="noopener">yuvapraveentiger28/Worldcup26</a><br>
+              <span class="mono">repository_id 1343166099</span> · files under <span class="mono">data/csv/</span>
+            </td>
+            <td class="mono">21 tables — see Bronze tab</td>
+            <td><span class="status-pill review">Landed — migrated</span></td>
+            <td class="mono">GitHub Connect → parse_pipeline_fifa_training_centre → bronze_fifa_training_centre</td>
+          </tr>
+          <tr>
+            <td><strong>Relational dataset</strong><br><span class="mono">relational</span><br><span style="font-size:0.72rem;color:var(--color-soft);">matches &amp; venues authority · xG &amp; VAR</span></td>
+            <td>
+              <a href="https://github.com/mominullptr/FIFA-World-Cup-2026-Dataset" target="_blank" rel="noopener">mominullptr/FIFA-World-Cup-2026-Dataset</a> (original)<br>
+              → forked to <a href="https://github.com/yuvapraveentiger28/FIFA-World-Cup-2026-Dataset" target="_blank" rel="noopener">yuvapraveentiger28/FIFA-World-Cup-2026-Dataset</a><br>
+              <span class="mono">repository_id 1343166340</span> · root-level CSVs
+            </td>
+            <td class="mono">11 tables (incl. matches, venues) — see Bronze tab</td>
+            <td><span class="status-pill review">Landed — migrated</span></td>
+            <td class="mono">GitHub Connect → parse_pipeline_relational → bronze_relational</td>
+          </tr>
+          <tr>
+            <td><strong>Historical World Cups</strong><br><span class="mono">historical</span><br><span style="font-size:0.72rem;color:var(--color-soft);">context, 1930–2022</span></td>
+            <td>
+              <a href="https://github.com/jfjelstul/worldcup" target="_blank" rel="noopener">jfjelstul/worldcup</a> (Fjelstul World Cup Database, original)<br>
+              → forked to <a href="https://github.com/yuvapraveentiger28/worldcup" target="_blank" rel="noopener">yuvapraveentiger28/worldcup</a><br>
+              <span class="mono">repository_id 1343166547</span> · files under <span class="mono">data-csv/</span>
+            </td>
+            <td class="mono">27 tables (hist_ prefix) — see Bronze tab</td>
+            <td><span class="status-pill review">Landed — migrated</span></td>
+            <td class="mono">GitHub Connect → parse_pipeline_historical → bronze_historical</td>
+          </tr>
+          <tr>
+            <td><strong>Pre-match predictions</strong><br><span class="mono">predictions</span><br><span style="font-size:0.72rem;color:var(--color-soft);">context, decision intelligence</span></td>
+            <td>
+              <a href="https://onsidearena.com/data" target="_blank" rel="noopener">Onside Arena</a> — direct CSV download, CC-BY-4.0<br>
+              <span class="mono">/data/predictions.csv</span> — not a git repo
+            </td>
+            <td class="mono">pre_match_prediction (1)</td>
+            <td><span class="status-pill built">Landed</span></td>
+            <td class="mono">Auto Loader → bronze_predictions</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="section-intro" style="margin-bottom:0;">Onside Arena also publishes <span class="mono">champions.csv</span> (reach-round probabilities) and <span class="mono">fixtures.csv</span> — not ingested: fixtures overlaps the relational dataset's own matches/venues data, and champions.csv isn't referenced by any bronze table.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- INGESTION -->
+    <!-- ============================================================ -->
+    <section id="tab-ingestion" class="tab-panel">
+      <h2>Ingestion — two mechanisms</h2>
+      <p class="section-intro">A single Lakeflow pipeline publishes to exactly one <span class="mono">catalog.schema</span> — there's no per-table override — so each datasource gets its own pipeline resource in <span class="mono">databricks.yml</span>, all deployed as one Asset Bundle.</p>
+
+      <div class="detail-card-grid">
+        <div class="card">
+          <p class="eyebrow">Mechanism 1 · non-git sources</p>
+          <div class="card-header"><span class="card-dot ink"></span><h3>Auto Loader</h3><span class="status-pill built" style="margin-left:0.5rem;">Built</span></div>
+          <span class="mono">ingestion/lakeflow/bronze.py</span>
+          <ul>
+            <li>cloudFiles reader off /Volumes/worldcupiq_catalog/landing/raw_files/&lt;table&gt;/...</li>
+            <li>Pipeline <span class="mono">bronze_pipeline_predictions</span> → schema bronze_predictions (datasource_filter: predictions)</li>
+            <li>Only remaining Auto Loader source — <span class="mono">bronze_pipeline_fifa_official</span> was dropped, see Data Sources tab</li>
+            <li>Serverless, channel PREVIEW</li>
+            <li>Ran for real on this workspace — <span class="mono">bronze_predictions.pre_match_prediction</span> is live data, not a stub</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Mechanism 2 · git-repo sources</p>
+          <div class="card-header"><span class="card-dot coral"></span><h3>Lakeflow Connect — GitHub</h3><span class="status-pill built" style="margin-left:0.5rem;">Built</span></div>
+          <span class="mono">github_ingestion_pipeline</span>
+          <ul>
+            <li>Connection <span class="mono">github-fifaworldcupiq</span> — OAuth, created manually (Catalog Explorer → External Data → Connections)</li>
+            <li>Org <span class="mono">yuvapraveentiger28</span> — must be an org, connector resolves via the org-repos API</li>
+            <li>Lands ALL of the org's repos' file trees into github_raw.repo_contents (no per-repo filter on the connector)</li>
+            <li>One row per file, unparsed — a downstream step must parse it</li>
+            <li>On this workspace: not yet deployable — the admin hasn't granted access to create the <span class="mono">github-fifaworldcupiq</span> connection, and <span class="mono">databricks bundle deploy</span> validates the connection at pipeline-creation time, so this resource can't exist until it does. The 3 GitHub-sourced bronze schemas were populated by a one-time migration in the meantime — see Data Sources tab.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Mechanism 2b · downstream of Connect</p>
+          <div class="card-header"><span class="card-dot muted"></span><h3>Parse pipelines</h3><span class="status-pill built" style="margin-left:0.5rem;">Built</span></div>
+          <span class="mono">ingestion/lakeflow/bronze_github_parse.py</span>
+          <ul>
+            <li>Reads repo_contents.content (whole file as text), infers CSV schema via schema_of_csv(), parses with from_csv()</li>
+            <li>parse_pipeline_fifa_training_centre → bronze_fifa_training_centre (21 tables)</li>
+            <li>parse_pipeline_relational → bronze_relational (11 tables)</li>
+            <li>parse_pipeline_historical → bronze_historical (27 tables)</li>
+            <li>Deployed on this workspace, but nothing to run yet — <span class="mono">github_raw.repo_contents</span> is empty until Lakeflow Connect lands data here (see above); the bronze tables these would parse into are already populated via migration instead</li>
+          </ul>
+        </div>
+      </div>
+
+      <table class="detail-table">
+        <caption>bronze_refresh job — daily trigger (databricks.yml)</caption>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Pipeline</th>
+            <th>Depends on</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">refresh_predictions</td><td class="mono">bronze_pipeline_predictions</td><td>—</td></tr>
+          <tr><td class="mono">refresh_github_raw</td><td class="mono">github_ingestion_pipeline</td><td>—</td></tr>
+          <tr><td class="mono">parse_fifa_training_centre</td><td class="mono">parse_pipeline_fifa_training_centre</td><td class="mono">refresh_github_raw</td></tr>
+          <tr><td class="mono">parse_relational</td><td class="mono">parse_pipeline_relational</td><td class="mono">refresh_github_raw</td></tr>
+          <tr><td class="mono">parse_historical</td><td class="mono">parse_pipeline_historical</td><td class="mono">refresh_github_raw</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- BRONZE -->
+    <!-- ============================================================ -->
+    <section id="tab-bronze" class="tab-panel">
+      <h2>Bronze — 11 schemas, 60 tables defined</h2>
+      <p class="section-intro">Every schema below exists in <span class="mono">worldcupiq_catalog</span> (conf/00_catalog.sql, applied via scripts/setup-catalog.cmd). All 60 tables are populated: <span class="mono">bronze_predictions</span> via a real <span class="mono">bronze_pipeline_predictions</span> run (Auto Loader); the other 3 schemas via a one-time migration from a prior workspace where the GitHub connection already existed, pending this workspace's admin granting access to create <span class="mono">github-fifaworldcupiq</span> here (see Data Sources tab).</p>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">landing</span>
+            <span class="schema-desc">Volume only, no tables — raw file landing zone for Auto Loader</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Volume <span class="mono">raw_files</span> — /Volumes/worldcupiq_catalog/landing/raw_files/&lt;table_name&gt;/..., one folder per bronze table, flat (no source subfolder).</p>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">github_raw</span>
+            <span class="schema-desc">1 table — raw repo_contents from Lakeflow Connect, unparsed</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Landed by <span class="mono">github_ingestion_pipeline</span>. One row per file across all of yuvapraveentiger28's repos; parse pipelines filter by <span class="mono">repository_id</span> + <span class="mono">path</span>.</p>
+          <div class="table-chip-list"><span class="table-chip">repo_contents</span></div>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">bronze_fifa_training_centre</span>
+            <span class="schema-desc">21 tables — parsed from yuvapraveentiger28/Worldcup26 (repository_id 1343166099)</span>
+          </span>
+          <span class="status-pill review">Landed — migrated</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Source path: <span class="mono">data/csv/*.csv</span>. Parsed by parse_pipeline_fifa_training_centre. Populated via a one-time migration from a prior workspace's already-connected GitHub source, not yet by a live run of that pipeline on this workspace — see Data Sources tab.</p>
+          <div class="table-chip-list">
+            <span class="table-chip">attempts_at_goal</span><span class="table-chip">match_appearances</span><span class="table-chip">match_teams</span><span class="table-chip">matches</span><span class="table-chip">passing_network_edges</span><span class="table-chip">player_crosses_open_play</span><span class="table-chip">player_events</span><span class="table-chip">player_in_possession_distributions</span><span class="table-chip">player_line_breaks</span><span class="table-chip">player_offers_receptions</span><span class="table-chip">player_out_of_possession</span><span class="table-chip">player_physical_data</span><span class="table-chip">players</span><span class="table-chip">team_aerial_control</span><span class="table-chip">team_defensive_pressure</span><span class="table-chip">team_goal_prevention</span><span class="table-chip">team_goalkeeping_distribution</span><span class="table-chip">team_key_stats</span><span class="table-chip">team_phases</span><span class="table-chip">team_set_plays</span><span class="table-chip">teams</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">bronze_relational</span>
+            <span class="schema-desc">11 tables — parsed from yuvapraveentiger28/FIFA-World-Cup-2026-Dataset (repository_id 1343166340)</span>
+          </span>
+          <span class="status-pill review">Landed — migrated</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Source path: root-level <span class="mono">*.csv</span>. Parsed by parse_pipeline_relational. <span class="mono">matches</span> and <span class="mono">venues</span> here are the authoritative source for those entities — the dropped fifa_official schema would have duplicated them. Populated via a one-time migration from a prior workspace's already-connected GitHub source, not yet by a live run of that pipeline on this workspace — see Data Sources tab.</p>
+          <div class="table-chip-list">
+            <span class="table-chip">match_events</span><span class="table-chip">match_lineups</span><span class="table-chip">match_prediction_features</span><span class="table-chip">match_team_stats</span><span class="table-chip">matches</span><span class="table-chip">player_stats</span><span class="table-chip">referees</span><span class="table-chip">squads_and_players</span><span class="table-chip">teams</span><span class="table-chip">tournament_stages</span><span class="table-chip">venues</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">bronze_historical</span>
+            <span class="schema-desc">27 tables — parsed from yuvapraveentiger28/worldcup (repository_id 1343166547)</span>
+          </span>
+          <span class="status-pill review">Landed — migrated</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Source path: <span class="mono">data-csv/*.csv</span>. Parsed by parse_pipeline_historical. hist_ prefix kept for README §6 naming consistency. Populated via a one-time migration from a prior workspace's already-connected GitHub source, not yet by a live run of that pipeline on this workspace — see Data Sources tab.</p>
+          <div class="table-chip-list">
+            <span class="table-chip">hist_award_winners</span><span class="table-chip">hist_awards</span><span class="table-chip">hist_bookings</span><span class="table-chip">hist_confederations</span><span class="table-chip">hist_goals</span><span class="table-chip">hist_group_standings</span><span class="table-chip">hist_groups</span><span class="table-chip">hist_host_countries</span><span class="table-chip">hist_manager_appearances</span><span class="table-chip">hist_manager_appointments</span><span class="table-chip">hist_managers</span><span class="table-chip">hist_matches</span><span class="table-chip">hist_penalty_kicks</span><span class="table-chip">hist_player_appearances</span><span class="table-chip">hist_players</span><span class="table-chip">hist_qualified_teams</span><span class="table-chip">hist_referee_appearances</span><span class="table-chip">hist_referee_appointments</span><span class="table-chip">hist_referees</span><span class="table-chip">hist_squads</span><span class="table-chip">hist_stadiums</span><span class="table-chip">hist_substitutions</span><span class="table-chip">hist_team_appearances</span><span class="table-chip">hist_teams</span><span class="table-chip">hist_tournament_stages</span><span class="table-chip">hist_tournament_standings</span><span class="table-chip">hist_tournaments</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">bronze_predictions</span>
+            <span class="schema-desc">1 table — via Auto Loader (bronze.py)</span>
+          </span>
+          <span class="status-pill built">Landed</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Source: Onside Arena predictions.csv, CSV.</p>
+          <div class="table-chip-list">
+            <span class="table-chip">pre_match_prediction</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">silver · gold · semantic</span>
+            <span class="schema-desc">48 tables/views built — 27 Silver, 16 Gold, 5 Metric Views</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">See the Silver Model, Gold Model, and Semantic Model tabs for the full table/view breakdown.</p>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">ontology · context</span>
+            <span class="schema-desc">2 schemas created, 0 tables — reserved for Phase 6–7</span>
+          </span>
+          <span class="status-pill planned">Schema only</span>
+        </summary>
+        <div class="schema-body">
+          <p class="schema-meta">Namespaces exist so downstream phases have somewhere to publish into, but no tables, views, or functions have been created yet. See the Planned tab for scope.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SILVER DATA MODEL (proposed — for review before Phase 3 build) -->
+    <!-- ============================================================ -->
+    <section id="tab-silver" class="tab-panel">
+      <h2>Silver — data model <span class="status-pill built" style="margin-left:0.5rem;vertical-align:middle;">Built</span></h2>
+      <p class="section-intro"><strong style="color:var(--color-ink);">27 tables</strong>, fully normalizing all 60 bronze tables across all 4 sources — 2026 (fifa_training_centre + relational) entity-resolved together, plus historical (27 tables, 1930–2022) and predictions (1 table). <span class="mono">ingestion/lakeflow/silver.py</span> is deployed as <span class="mono">silver_pipeline</span> and has run successfully end to end against real bronze data — all 27 flows completed. <span class="mono">#</span> = primary key, <span class="mono">→</span> = foreign key. The diagram below is a cluster-level map; every table's full column list is in the sections underneath, grouped by cluster.</p>
+      <div class="review-note" style="background:rgba(124,143,111,0.08);border-color:rgba(124,143,111,0.3);">
+        <h3>Known gap in this first build</h3>
+        <ol>
+          <li>The EAV-shaped fifa_training_centre stat tables — <span class="mono">team_key_stats</span>, <span class="mono">team_phases</span>, <span class="mono">team_set_plays</span>, <span class="mono">team_goalkeeping_distribution</span> (metric/value rows, not wide columns) — are not pivoted into <span class="mono">match_team</span> yet. Their exact metric label strings weren't sampled before this build; <span class="mono">match_team</span> currently runs on <span class="mono">relational.match_team_stats</span> + the wide-shaped fifa_training_centre tables (defensive pressure, aerial control, goal prevention) only.</li>
+        </ol>
+      </div>
+
+      <svg viewBox="0 0 1200 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="silver-cluster-title silver-cluster-desc">
+        <title id="silver-cluster-title">Silver layer — 27 tables in 7 clusters, built</title>
+        <desc id="silver-cluster-desc">Cluster-level map of the built Silver layer: Tournament and Reference, Team and Player, and Officials feed into a focal Match Spine cluster, which in turn feeds Match Performance, Events and Awards, and Predictions clusters below it.</desc>
+        <defs>
+          <marker id="cl-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#585554"/></marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#f4f4f4"/>
+
+        <!-- D → top row (D references these) -->
+        <path d="M500,208 V192 Q500,184 492,184 H232 Q224,184 224,176 V160" fill="none" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+        <line x1="600" y1="208" x2="600" y2="160" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+        <path d="M700,208 V192 Q700,184 708,184 H968 Q976,184 976,176 V160" fill="none" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+
+        <!-- bottom row → D (these reference D) -->
+        <path d="M224,336 V324 Q224,316 232,316 H492 Q500,316 500,308 V296" fill="none" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+        <line x1="600" y1="336" x2="600" y2="296" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+        <path d="M976,336 V324 Q976,316 968,316 H708 Q700,316 700,308 V296" fill="none" stroke="#585554" stroke-width="1.2" marker-end="url(#cl-arrow)"/>
+
+        <!-- Row 1: Tournament & Reference / Team & Player / Officials -->
+        <rect x="56" y="64" width="336" height="96" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+        <text x="72" y="90" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Tournament &amp; Reference</text>
+        <text x="72" y="110" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">5 tables — tournament, confederation, stage,</text>
+        <text x="72" y="124" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">group, qualified_team</text>
+        <text x="72" y="144" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: historical (+ seeded 2026 rows)</text>
+
+        <rect x="432" y="64" width="336" height="96" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+        <text x="448" y="90" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Team &amp; Player</text>
+        <text x="448" y="110" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">4 tables — team, team_tournament, player,</text>
+        <text x="448" y="124" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">squad_member</text>
+        <text x="448" y="144" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: all 3 team/player sources, entity-resolved</text>
+
+        <rect x="808" y="64" width="336" height="96" rx="6" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+        <text x="824" y="90" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Officials</text>
+        <text x="824" y="110" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">4 tables — referee, referee_assignment,</text>
+        <text x="824" y="124" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">manager, manager_appointment</text>
+        <text x="824" y="144" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: relational.referees + historical</text>
+
+        <!-- Hub: Match Spine (focal) -->
+        <rect x="452" y="208" width="296" height="88" rx="6" fill="rgba(247,144,29,0.12)" stroke="#f7901d" stroke-width="1.2"/>
+        <rect x="676" y="214" width="60" height="12" rx="2" fill="transparent" stroke="rgba(247,144,29,0.45)" stroke-width="0.8"/>
+        <text x="706" y="223" fill="rgba(247,144,29,0.95)" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">FOCAL</text>
+        <text x="468" y="232" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Match Spine</text>
+        <text x="468" y="252" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">4 tables — match, venue, group_standing,</text>
+        <text x="468" y="266" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">tournament_standing</text>
+        <text x="468" y="284" fill="rgba(247,144,29,0.9)" font-size="9" font-family="'Geist Mono', monospace">every tournament, 1930–2026, one grain</text>
+
+        <!-- Row 3: Match Performance / Events & Awards / Predictions -->
+        <rect x="56" y="336" width="336" height="96" rx="6" fill="rgba(49,46,45,0.05)" stroke="#585554" stroke-width="1"/>
+        <text x="72" y="362" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Match Performance</text>
+        <text x="72" y="382" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">5 tables — match_team, match_player,</text>
+        <text x="72" y="396" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">match_player_physical, match_goalkeeper, passing_edge</text>
+        <text x="72" y="416" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: fifa_training_centre + relational (2026 only)</text>
+
+        <rect x="432" y="336" width="336" height="96" rx="6" fill="rgba(49,46,45,0.05)" stroke="#585554" stroke-width="1"/>
+        <text x="448" y="362" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Events &amp; Awards</text>
+        <text x="448" y="382" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">3 tables — match_event, award, award_winner</text>
+        <text x="448" y="416" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: goals/cards/subs across all 3 team/match sources</text>
+
+        <rect x="808" y="336" width="336" height="96" rx="6" fill="rgba(49,46,45,0.05)" stroke="#585554" stroke-width="1"/>
+        <text x="824" y="362" fill="#312e2d" font-size="12" font-weight="600" font-family="'Geist', sans-serif">Predictions</text>
+        <text x="824" y="382" fill="#585554" font-size="9" font-family="'Geist Mono', monospace">2 tables — match_prediction_feature, prediction</text>
+        <text x="824" y="416" fill="#8e8e8e" font-size="9" font-family="'Geist Mono', monospace">from: relational + predictions sources</text>
+
+        <!-- Legend -->
+        <line x1="40" y1="470" x2="1160" y2="470" stroke="rgba(49,46,45,0.10)" stroke-width="0.8"/>
+        <text x="40" y="486" fill="#585554" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+
+        <rect x="40" y="494" width="16" height="16" fill="rgba(247,144,29,0.12)" stroke="#f7901d" stroke-width="1.2"/>
+        <text x="64" y="506" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Focal — Match Spine, everything joins through it</text>
+
+        <rect x="440" y="494" width="16" height="16" fill="#ffffff" stroke="#312e2d" stroke-width="1"/>
+        <text x="464" y="506" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Reference / dimension cluster</text>
+
+        <rect x="760" y="494" width="16" height="16" fill="rgba(49,46,45,0.05)" stroke="#585554" stroke-width="1"/>
+        <text x="784" y="506" fill="#312e2d" font-size="12" font-family="'Geist', sans-serif">Match-grain detail cluster</text>
+
+        <text x="40" y="530" fill="#585554" font-size="8" font-family="'Geist Mono', monospace">Arrows point from the dependent table to what it references (e.g. Match Performance → Match Spine, since match_team.match_id → match.match_id). Table-level FKs are in each table's column list below.</text>
+      </svg>
+
+      <h3 class="cluster-heading" style="margin-top:2.5rem;">Object-level relationships <span class="count">— Mermaid ER diagram, every table's PK/FK, color-coded by cluster</span></h3>
+      <p class="section-intro">All 27 tables with their key columns — <span class="mono">PK</span> and <span class="mono">FK</span> marked on every attribute that carries one — rendered as a native Mermaid <span class="mono">erDiagram</span> instead of hand-drawn SVG, so the layout and every relationship line are Mermaid's own engine, not manually routed. Colored by cluster to match the diagrams above. Scroll horizontally if it doesn't fit — at 27 tables this is a wide diagram.</p>
+
+      <div class="mermaid-wrap">
+        <div class="mermaid-loading" id="silver-mermaid-loading">Rendering diagram…</div>
+        <pre class="mermaid" id="silver-mermaid-source">
+erDiagram
+    TOURNAMENT {
+        bigint tournament_id PK
+        string name
+        int year
+        int edition_number
+        bigint host_confederation_id FK
+    }
+    CONFEDERATION {
+        bigint confederation_id PK
+        string name
+        string code UK
+    }
+    STAGE {
+        bigint stage_id PK
+        bigint tournament_id FK
+        string name
+        int stage_order
+    }
+    TOURNAMENT_GROUP {
+        bigint group_id PK
+        bigint tournament_id FK
+        bigint stage_id FK
+        string name
+    }
+    QUALIFIED_TEAM {
+        bigint tournament_id PK,FK
+        bigint team_id PK,FK
+        bigint confederation_id FK
+        string qualification_route
+    }
+    TEAM {
+        bigint team_id PK
+        string name
+        string code UK
+        bigint confederation_id FK
+        string country_code
+    }
+    TEAM_TOURNAMENT {
+        bigint team_tournament_id PK
+        bigint tournament_id FK
+        bigint team_id FK
+        bigint group_id FK
+        int final_rank
+    }
+    PLAYER {
+        bigint player_id PK
+        string name
+        date date_of_birth
+        string position
+    }
+    SQUAD_MEMBER {
+        bigint squad_member_id PK
+        bigint tournament_id FK
+        bigint team_id FK
+        bigint player_id FK
+        int shirt_number
+    }
+    REFEREE {
+        bigint referee_id PK
+        string name
+        string country_code
+    }
+    REFEREE_ASSIGNMENT {
+        bigint assignment_id PK
+        bigint match_id FK
+        bigint referee_id FK
+        string role
+    }
+    MANAGER {
+        bigint manager_id PK
+        string name
+        string country_code
+    }
+    MANAGER_APPOINTMENT {
+        bigint appointment_id PK
+        bigint tournament_id FK
+        bigint team_id FK
+        bigint manager_id FK
+    }
+    VENUE {
+        bigint venue_id PK
+        string name
+        string city
+        string country_code
+        int capacity
+    }
+    MATCH {
+        bigint match_id PK
+        bigint tournament_id FK
+        bigint stage_id FK
+        bigint group_id FK
+        bigint venue_id FK
+        bigint home_team_id FK
+        bigint away_team_id FK
+        bigint winner_team_id FK
+        date match_date
+        int home_score
+        int away_score
+        double home_xg
+        double away_xg
+    }
+    GROUP_STANDING {
+        bigint group_standing_id PK
+        bigint group_id FK
+        bigint team_id FK
+        int points
+        int rank
+    }
+    TOURNAMENT_STANDING {
+        bigint tournament_standing_id PK
+        bigint tournament_id FK
+        bigint team_id FK
+        int final_rank
+    }
+    MATCH_TEAM {
+        bigint match_team_id PK
+        bigint match_id FK
+        bigint team_id FK
+        string home_away
+        int goals
+        double xg
+        double possession_pct
+    }
+    MATCH_PLAYER {
+        bigint match_player_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        int minutes
+        int goals
+        int assists
+    }
+    MATCH_PLAYER_PHYSICAL {
+        bigint match_player_id PK,FK
+        double distance_covered_km
+        double top_speed_kmh
+    }
+    MATCH_GOALKEEPER {
+        bigint match_goalkeeper_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        int goals_conceded
+        int saves
+    }
+    PASSING_EDGE {
+        bigint match_id PK,FK
+        bigint team_id PK,FK
+        bigint passer_id PK,FK
+        bigint receiver_id PK,FK
+        int passes
+    }
+    MATCH_EVENT {
+        bigint event_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        bigint secondary_player_id FK
+        string event_type
+        int minute
+    }
+    AWARD {
+        bigint award_id PK
+        bigint tournament_id FK
+        string name
+    }
+    AWARD_WINNER {
+        bigint award_winner_id PK
+        bigint award_id FK
+        bigint player_id FK
+        bigint team_id FK
+    }
+    MATCH_PREDICTION_FEATURE {
+        bigint match_id PK,FK
+        bigint team_id PK,FK
+        double feature_01_to_65
+    }
+    PREDICTION {
+        bigint match_id PK,FK
+        bigint team_id PK,FK
+        double win_probability
+        double draw_probability
+        double loss_probability
+        string model
+    }
+
+    TOURNAMENT ||--o{ STAGE : has
+    TOURNAMENT ||--o{ TOURNAMENT_GROUP : has
+    TOURNAMENT ||--o{ QUALIFIED_TEAM : has
+    TOURNAMENT ||--o{ TEAM_TOURNAMENT : has
+    TOURNAMENT ||--o{ SQUAD_MEMBER : has
+    TOURNAMENT ||--o{ MANAGER_APPOINTMENT : has
+    TOURNAMENT ||--o{ MATCH : has
+    TOURNAMENT ||--o{ TOURNAMENT_STANDING : has
+    TOURNAMENT ||--o{ AWARD : has
+    CONFEDERATION ||--o{ TOURNAMENT : hosts
+    CONFEDERATION ||--o{ TEAM : affiliates
+    CONFEDERATION ||--o{ QUALIFIED_TEAM : slots
+    STAGE ||--o{ TOURNAMENT_GROUP : contains
+    STAGE ||--o{ MATCH : contains
+    TOURNAMENT_GROUP ||--o{ TEAM_TOURNAMENT : assigns
+    TOURNAMENT_GROUP ||--o{ MATCH : contains
+    TOURNAMENT_GROUP ||--o{ GROUP_STANDING : ranks
+    TEAM ||--o{ TEAM_TOURNAMENT : participates
+    TEAM ||--o{ QUALIFIED_TEAM : qualifies
+    TEAM ||--o{ SQUAD_MEMBER : rosters
+    TEAM ||--o{ MANAGER_APPOINTMENT : appoints
+    TEAM ||--o{ MATCH : "home team"
+    TEAM ||--o{ MATCH : "away team"
+    TEAM ||--o{ MATCH : "winner"
+    TEAM ||--o{ GROUP_STANDING : ranked
+    TEAM ||--o{ TOURNAMENT_STANDING : ranked
+    TEAM ||--o{ MATCH_TEAM : records
+    TEAM ||--o{ MATCH_PLAYER : fields
+    TEAM ||--o{ MATCH_GOALKEEPER : fields
+    TEAM ||--o{ PASSING_EDGE : records
+    TEAM ||--o{ MATCH_EVENT : "involved in"
+    TEAM ||--o{ AWARD_WINNER : "wins (team)"
+    TEAM ||--o{ MATCH_PREDICTION_FEATURE : features
+    TEAM ||--o{ PREDICTION : predicted
+    PLAYER ||--o{ SQUAD_MEMBER : rostered
+    PLAYER ||--o{ MATCH_PLAYER : plays
+    PLAYER ||--o{ MATCH_GOALKEEPER : plays
+    PLAYER ||--o{ PASSING_EDGE : "passes as passer"
+    PLAYER ||--o{ PASSING_EDGE : "passes as receiver"
+    PLAYER ||--o{ MATCH_EVENT : "primary actor"
+    PLAYER ||--o{ MATCH_EVENT : "secondary actor"
+    PLAYER ||--o{ AWARD_WINNER : "wins (player)"
+    REFEREE ||--o{ REFEREE_ASSIGNMENT : officiates
+    MANAGER ||--o{ MANAGER_APPOINTMENT : appointed
+    VENUE ||--o{ MATCH : hosts
+    MATCH ||--o{ REFEREE_ASSIGNMENT : assigned
+    MATCH ||--o{ MATCH_TEAM : has
+    MATCH ||--o{ MATCH_PLAYER : has
+    MATCH ||--o{ MATCH_GOALKEEPER : has
+    MATCH ||--o{ PASSING_EDGE : has
+    MATCH ||--o{ MATCH_EVENT : has
+    MATCH ||--o{ MATCH_PREDICTION_FEATURE : has
+    MATCH ||--o{ PREDICTION : has
+    MATCH_PLAYER ||--|| MATCH_PLAYER_PHYSICAL : extends
+    AWARD ||--o{ AWARD_WINNER : has
+
+    classDef clusterA fill:#f0f2ed,stroke:#7c8f6f,color:#312e2d
+    classDef clusterB fill:#eef1f4,stroke:#5e7a9b,color:#312e2d
+    classDef clusterC fill:#f7f1e9,stroke:#b8915a,color:#312e2d
+    classDef clusterD fill:#fdf0e0,stroke:#f7901d,color:#312e2d
+    classDef clusterE fill:#f4eeec,stroke:#9c6b50,color:#312e2d
+    classDef clusterF fill:#f0eff2,stroke:#6e6479,color:#312e2d
+    classDef clusterG fill:#edf4f2,stroke:#5a8f85,color:#312e2d
+
+    class TOURNAMENT,CONFEDERATION,STAGE,TOURNAMENT_GROUP,QUALIFIED_TEAM clusterA
+    class TEAM,TEAM_TOURNAMENT,PLAYER,SQUAD_MEMBER clusterB
+    class REFEREE,REFEREE_ASSIGNMENT,MANAGER,MANAGER_APPOINTMENT clusterC
+    class MATCH,VENUE,GROUP_STANDING,TOURNAMENT_STANDING clusterD
+    class MATCH_TEAM,MATCH_PLAYER,MATCH_PLAYER_PHYSICAL,MATCH_GOALKEEPER,PASSING_EDGE clusterE
+    class MATCH_EVENT,AWARD,AWARD_WINNER clusterF
+    class MATCH_PREDICTION_FEATURE,PREDICTION clusterG
+        </pre>
+      </div>
+      <p class="section-intro" style="margin-bottom:1.5rem;"><span class="mono">PK,FK</span> in the diagram means that column is part of a composite primary key <em>and</em> a foreign key at the same time (e.g. <span class="mono">passing_edge</span>'s four-column key) — Mermaid's own key syntax only cleanly renders one marker per column, so composite PK+FK columns are called out this way instead of silently picking just one. <span class="mono">match_prediction_feature.feature_01_to_65</span> stands in for the real 65 ML feature columns (see the Cluster G detail below) — listing all 65 in the diagram itself would drown out everything else.</p>
+
+      <div class="review-note">
+        <h3>Decisions made while going from 8 tables to 28 — flag anything you'd change</h3>
+        <ol>
+          <li><strong>Restored <span class="mono">tournament</span>.</strong> The 8-table pass dropped it for "single-tournament scope" — that broke the moment historical entered the picture. <span class="mono">hist_tournaments</span> covers 1930–2022; a seeded 2026 row extends it. <span class="mono">team</span>, <span class="mono">player</span>, <span class="mono">match</span> are now conformed across every tournament, not siloed as "2026" vs "historical" copies — that's what README §6 asks for ("historical facts conform to the same dims").</li>
+          <li><strong>Moved <span class="mono">group_name</span> off <span class="mono">team</span> onto a new <span class="mono">team_tournament</span> bridge.</strong> A team's group changes every tournament; it isn't a team attribute once team spans eras. Also absorbs <span class="mono">hist_team_appearances</span>.</li>
+          <li><strong>No standalone <span class="mono">country</span> or <span class="mono">host_country</span> table.</strong> In this domain a World Cup "team" essentially *is* a country — a separate country table would mostly just mirror team 1:1. Used inline <span class="mono">country_code</span> on <span class="mono">team</span> / <span class="mono">venue</span> instead; the host nation's name lives on <span class="mono">tournament.host_country_name</span>, and <span class="mono">hist_host_countries</span>' real shape (host team + how they performed, not geography) turned out to belong on <span class="mono">tournament_standing.host_performance</span> instead — corrected after the first pass of this tab claimed a <span class="mono">host_country</span> table that was never actually built.</li>
+          <li><strong>Merged <span class="mono">hist_referee_appearances</span> + <span class="mono">hist_referee_appointments</span></strong> into one match-grain <span class="mono">referee_assignment</span> (role: main / assistant / VAR) — appointment vs. appearance was a tournament-panel-vs-match-day distinction that collapses cleanly to "who officiated this match, in what role."</li>
+          <li><strong>Merged <span class="mono">hist_manager_appearances</span> + <span class="mono">hist_manager_appointments</span></strong> into one tournament-grain <span class="mono">manager_appointment</span> — same reasoning. No 2026 manager data exists in any current bronze source, so this cluster is historical-only for now.</li>
+          <li><strong><span class="mono">match_player_physical</span> and <span class="mono">match_goalkeeper</span> split out</strong> from <span class="mono">match_player</span> — GPS/physical tracking and goalkeeper-specific measures (<span class="mono">team_goal_prevention</span>, <span class="mono">team_goalkeeping_distribution</span>) are different grains/availability than general on-ball player stats, so folding them into <span class="mono">match_player</span> would mean mostly-null columns for outfield players and non-starters.</li>
+          <li><strong><span class="mono">match_prediction_feature</span> kept separate from <span class="mono">prediction</span>.</strong> <span class="mono">relational.match_prediction_features</span> (originally estimated at 65 anonymous ML input features, mominullptr; verified after landing as 10 real named <span class="mono">home_*</span>/<span class="mono">away_*</span> columns) and <span class="mono">predictions.pre_match_prediction</span> (Onside Arena's actual output probabilities) are different things from different sources at the same grain — inputs vs. output, not duplicates.</li>
+        </ol>
+      </div>
+
+      <div class="review-note" style="background:rgba(124,143,111,0.08);border-color:rgba(124,143,111,0.3);">
+        <h3>Caveat resolved — verified against real data</h3>
+        <ol>
+          <li>The above was originally written before Phase 1 landed any source file, as a best-reasonable-naming placeholder. All 60 bronze tables have since landed and every silver table was rebuilt in <span class="mono">ingestion/lakeflow/silver.py</span> against the real, verified column names — checked directly via <span class="mono">databricks tables get</span> against the actually-landed data, not guessed. A few real shapes differed from this original review (see the file header in <span class="mono">silver.py</span> for the specifics, e.g. <span class="mono">match_prediction_feature</span>'s real ~60 named <span class="mono">home_*</span>/<span class="mono">away_*</span> columns replacing the anonymous <span class="mono">feature_01..65</span> placeholder guessed here). The grain/keys design below held up; only the column-name guesses needed correcting.</li>
+        </ol>
+      </div>
+
+      <h3 class="cluster-heading">Bronze → Silver coverage <span class="count">— all 60 bronze tables accounted for</span></h3>
+      <table class="detail-table map-table">
+        <thead><tr><th>Bronze table</th><th>→ Silver table</th></tr></thead>
+        <tbody>
+          <tr><td colspan="2" class="src-group">fifa_training_centre (21)</td></tr>
+          <tr><td class="mono">matches</td><td class="mono">match</td></tr>
+          <tr><td class="mono">teams</td><td class="mono">team</td></tr>
+          <tr><td class="mono">players</td><td class="mono">player, squad_member</td></tr>
+          <tr><td class="mono">match_teams</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">match_appearances</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">attempts_at_goal</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">passing_network_edges</td><td class="mono">passing_edge</td></tr>
+          <tr><td class="mono">player_crosses_open_play</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">player_events</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">player_in_possession_distributions</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">player_line_breaks</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">player_offers_receptions</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">player_out_of_possession</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">player_physical_data</td><td class="mono">match_player_physical</td></tr>
+          <tr><td class="mono">team_aerial_control</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">team_defensive_pressure</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">team_goal_prevention</td><td class="mono">match_goalkeeper</td></tr>
+          <tr><td class="mono">team_goalkeeping_distribution</td><td class="mono">match_goalkeeper</td></tr>
+          <tr><td class="mono">team_key_stats</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">team_phases</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">team_set_plays</td><td class="mono">match_team</td></tr>
+
+          <tr><td colspan="2" class="src-group">relational (11)</td></tr>
+          <tr><td class="mono">matches</td><td class="mono">match</td></tr>
+          <tr><td class="mono">venues</td><td class="mono">venue</td></tr>
+          <tr><td class="mono">tournament_stages</td><td class="mono">stage</td></tr>
+          <tr><td class="mono">referees</td><td class="mono">referee</td></tr>
+          <tr><td class="mono">match_events</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">match_lineups</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">match_prediction_features</td><td class="mono">match_prediction_feature</td></tr>
+          <tr><td class="mono">match_team_stats</td><td class="mono">match_team</td></tr>
+          <tr><td class="mono">player_stats</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">squads_and_players</td><td class="mono">player, squad_member</td></tr>
+          <tr><td class="mono">teams</td><td class="mono">team</td></tr>
+
+          <tr><td colspan="2" class="src-group">historical (27)</td></tr>
+          <tr><td class="mono">hist_tournaments</td><td class="mono">tournament</td></tr>
+          <tr><td class="mono">hist_teams</td><td class="mono">team</td></tr>
+          <tr><td class="mono">hist_players</td><td class="mono">player</td></tr>
+          <tr><td class="mono">hist_matches</td><td class="mono">match</td></tr>
+          <tr><td class="mono">hist_goals</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">hist_bookings</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">hist_substitutions</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">hist_penalty_kicks</td><td class="mono">match_event</td></tr>
+          <tr><td class="mono">hist_squads</td><td class="mono">squad_member</td></tr>
+          <tr><td class="mono">hist_group_standings</td><td class="mono">group_standing</td></tr>
+          <tr><td class="mono">hist_groups</td><td class="mono">group</td></tr>
+          <tr><td class="mono">hist_host_countries</td><td class="mono">tournament_standing <em>(host_performance)</em></td></tr>
+          <tr><td class="mono">hist_manager_appearances</td><td class="mono">manager_appointment <em>(merged)</em></td></tr>
+          <tr><td class="mono">hist_manager_appointments</td><td class="mono">manager_appointment</td></tr>
+          <tr><td class="mono">hist_managers</td><td class="mono">manager</td></tr>
+          <tr><td class="mono">hist_player_appearances</td><td class="mono">match_player</td></tr>
+          <tr><td class="mono">hist_qualified_teams</td><td class="mono">qualified_team</td></tr>
+          <tr><td class="mono">hist_referee_appearances</td><td class="mono">referee_assignment <em>(merged)</em></td></tr>
+          <tr><td class="mono">hist_referee_appointments</td><td class="mono">referee_assignment</td></tr>
+          <tr><td class="mono">hist_referees</td><td class="mono">referee</td></tr>
+          <tr><td class="mono">hist_stadiums</td><td class="mono">venue</td></tr>
+          <tr><td class="mono">hist_team_appearances</td><td class="mono">team_tournament</td></tr>
+          <tr><td class="mono">hist_tournament_stages</td><td class="mono">stage</td></tr>
+          <tr><td class="mono">hist_tournament_standings</td><td class="mono">tournament_standing</td></tr>
+          <tr><td class="mono">hist_awards</td><td class="mono">award</td></tr>
+          <tr><td class="mono">hist_award_winners</td><td class="mono">award_winner</td></tr>
+          <tr><td class="mono">hist_confederations</td><td class="mono">confederation</td></tr>
+
+          <tr><td colspan="2" class="src-group">predictions (1)</td></tr>
+          <tr><td class="mono">pre_match_prediction</td><td class="mono">prediction</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="cluster-heading">Cluster A — Tournament &amp; Reference <span class="count">(5 tables)</span></h3>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">tournament</span>
+            <span class="schema-desc">One row per World Cup edition, 1930–2026 · restored from the 8-table pass</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name, year</td><td class="mono">STRING, INT</td><td>NOT NULL</td><td>historical.hist_tournaments</td></tr>
+              <tr><td class="mono">edition_number</td><td class="mono">INT</td><td>—</td><td>historical.hist_tournaments</td></tr>
+              <tr><td class="mono">host_confederation_id</td><td class="mono">BIGINT</td><td>FK → confederation</td><td>historical.hist_tournaments</td></tr>
+              <tr><td class="mono">2026 row</td><td class="mono">—</td><td>—</td><td>seeded — no bronze source has an explicit tournament table for 2026</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">confederation</span>
+            <span class="schema-desc">Small lookup — AFC, CAF, CONCACAF, CONMEBOL, OFC, UEFA</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">confederation_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name, code</td><td class="mono">STRING</td><td>NOT NULL, UQ</td><td>historical.hist_confederations</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">stage</span>
+            <span class="schema-desc">Group Stage, Round of 16, Quarterfinal, ... per tournament · FK: tournament</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">stage_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">name, stage_order</td><td class="mono">STRING, INT</td><td>NOT NULL</td><td>relational.tournament_stages, historical.hist_tournament_stages</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">group</span>
+            <span class="schema-desc">Group A, B, C ... per tournament · FK: tournament, stage</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">group_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">stage_id</td><td class="mono">BIGINT</td><td>FK → stage</td><td>—</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td><td>historical.hist_groups; 2026 derived from relational.matches.group_name</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">qualified_team</span>
+            <span class="schema-desc">Which teams qualified for which tournament, via which route · FK: tournament, team, confederation</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → team</td><td>—</td></tr>
+              <tr><td class="mono">confederation_id</td><td class="mono">BIGINT</td><td>FK → confederation</td><td>historical.hist_qualified_teams</td></tr>
+              <tr><td class="mono">qualification_route</td><td class="mono">STRING</td><td>—</td><td>historical.hist_qualified_teams</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster B — Team &amp; Player <span class="count">(4 tables)</span></h3>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">team</span>
+            <span class="schema-desc">One row per national team, entity-resolved across 2026 + historical · no more group_name (moved to team_tournament)</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td><td>relational.teams, fifa_training_centre.teams, historical.hist_teams</td></tr>
+              <tr><td class="mono">code</td><td class="mono">STRING</td><td>UQ</td><td>relational.teams (3-letter code)</td></tr>
+              <tr><td class="mono">confederation_id</td><td class="mono">BIGINT</td><td>FK → confederation</td><td>fifa_training_centre.teams, historical.hist_teams</td></tr>
+              <tr><td class="mono">country_code</td><td class="mono">STRING</td><td>—</td><td>relational.teams</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">team_tournament</span>
+            <span class="schema-desc">NEW — team's participation in one tournament: group, final rank · FK: tournament, team, group</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_tournament_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>FK → team</td><td>—</td></tr>
+              <tr><td class="mono">group_id</td><td class="mono">BIGINT</td><td>FK → group, nullable (knockout-only eras)</td><td>historical.hist_team_appearances; 2026 derived from relational.matches</td></tr>
+              <tr><td class="mono">final_rank</td><td class="mono">INT</td><td>—</td><td>historical.hist_team_appearances</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">player</span>
+            <span class="schema-desc">One row per player, entity-resolved across 2026 + historical (10,401 historical + ~1,277 2026)</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">player_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td><td>fifa_training_centre.players, relational.squads_and_players, historical.hist_players</td></tr>
+              <tr><td class="mono">date_of_birth</td><td class="mono">DATE</td><td>—</td><td>relational.squads_and_players</td></tr>
+              <tr><td class="mono">position</td><td class="mono">STRING</td><td>—</td><td>fifa_training_centre.players</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">squad_member</span>
+            <span class="schema-desc">NEW — player's roster slot for one tournament · FK: tournament, team, player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">squad_member_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>FK → team</td><td>—</td></tr>
+              <tr><td class="mono">player_id</td><td class="mono">BIGINT</td><td>FK → player</td><td>—</td></tr>
+              <tr><td class="mono">shirt_number</td><td class="mono">INT</td><td>—</td><td>fifa_training_centre.players, relational.squads_and_players, historical.hist_squads</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster C — Officials <span class="count">(4 tables)</span></h3>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">referee</span>
+            <span class="schema-desc">One row per referee</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">referee_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name, country_code</td><td class="mono">STRING</td><td>NOT NULL</td><td>relational.referees, historical.hist_referees</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">referee_assignment</span>
+            <span class="schema-desc">NEW — who officiated one match, in what role · merges hist_referee_appearances + hist_referee_appointments · FK: match, referee</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">assignment_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">match_id</td><td class="mono">BIGINT</td><td>FK → match</td><td>—</td></tr>
+              <tr><td class="mono">referee_id</td><td class="mono">BIGINT</td><td>FK → referee</td><td>—</td></tr>
+              <tr><td class="mono">role</td><td class="mono">STRING</td><td>NOT NULL</td><td>MAIN / ASSISTANT / FOURTH / VAR — historical.hist_referee_appearances, hist_referee_appointments</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">manager</span>
+            <span class="schema-desc">One row per manager/coach · historical-only — no 2026 manager data in any current bronze source</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">manager_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name, country_code</td><td class="mono">STRING</td><td>NOT NULL</td><td>historical.hist_managers</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">manager_appointment</span>
+            <span class="schema-desc">NEW — which manager led which team in which tournament · merges hist_manager_appearances + hist_manager_appointments · FK: tournament, team, manager</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">appointment_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>FK → team</td><td>—</td></tr>
+              <tr><td class="mono">manager_id</td><td class="mono">BIGINT</td><td>FK → manager</td><td>historical.hist_manager_appointments, hist_manager_appearances</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster D — Match Spine <span class="count">(4 tables, focal)</span></h3>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match</span>
+            <span class="schema-desc">Fact — one row per match, every tournament 1930–2026 · FK: tournament, stage, group, venue, home/away/winner team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>2026 fixed value; historical.hist_matches</td></tr>
+              <tr><td class="mono">stage_id, group_id</td><td class="mono">BIGINT</td><td>FK → stage, group (nullable)</td><td>relational.tournament_stages, historical.hist_tournament_stages</td></tr>
+              <tr><td class="mono">match_number, match_date</td><td class="mono">INT, DATE</td><td>NOT NULL</td><td>relational.matches, fifa_training_centre.matches, historical.hist_matches</td></tr>
+              <tr><td class="mono">venue_id</td><td class="mono">BIGINT</td><td>FK → venue</td><td>relational.venues (join by name), historical.hist_stadiums</td></tr>
+              <tr><td class="mono">home_team_id, away_team_id, winner_team_id</td><td class="mono">BIGINT</td><td>FK → team, winner nullable</td><td>relational.matches, historical.hist_matches</td></tr>
+              <tr><td class="mono">home_score, away_score, home_penalties, away_penalties</td><td class="mono">INT</td><td>NOT NULL / nullable</td><td>relational.matches, historical.hist_matches</td></tr>
+              <tr><td class="mono">home_xg, away_xg</td><td class="mono">DOUBLE</td><td>nullable — historical has none</td><td>relational.matches (2026 only)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">venue</span>
+            <span class="schema-desc">One row per stadium, 2026 + historical</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">venue_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">name, city, country_code</td><td class="mono">STRING</td><td>NOT NULL</td><td>relational.venues, historical.hist_stadiums</td></tr>
+              <tr><td class="mono">capacity</td><td class="mono">INT</td><td>—</td><td>relational.venues</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">group_standing</span>
+            <span class="schema-desc">Group-stage table row per team · FK: group, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">group_standing_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">group_id</td><td class="mono">BIGINT</td><td>FK → group</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>FK → team</td><td>—</td></tr>
+              <tr><td class="mono">played, won, drawn, lost</td><td class="mono">INT</td><td>—</td><td>historical.hist_group_standings</td></tr>
+              <tr><td class="mono">goals_for, goals_against, points, rank</td><td class="mono">INT</td><td>—</td><td>historical.hist_group_standings</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">tournament_standing</span>
+            <span class="schema-desc">Final tournament placement per team · FK: tournament, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">tournament_standing_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>FK → team</td><td>—</td></tr>
+              <tr><td class="mono">final_rank, stage_reached</td><td class="mono">INT, STRING</td><td>—</td><td>historical.hist_tournament_standings</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster E — Match Performance <span class="count">(5 tables, 2026 only)</span></h3>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_team</span>
+            <span class="schema-desc">Team stats per match (208 rows) · FK: match, team · merges team_match_statistics</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_team_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>FK → match, team</td><td>—</td></tr>
+              <tr><td class="mono">home_away</td><td class="mono">STRING</td><td>NOT NULL</td><td>relational.matches</td></tr>
+              <tr><td class="mono">goals, xg, possession_pct, shots, shots_on_target, passes, pass_completion_pct</td><td class="mono">INT/DOUBLE</td><td>—</td><td>fifa_training_centre.team_key_stats, relational.match_team_stats</td></tr>
+              <tr><td class="mono">recoveries, pressures, tackles, aerial_duels, corners</td><td class="mono">INT</td><td>—</td><td>fifa_training_centre.team_defensive_pressure, team_aerial_control, team_phases, team_set_plays</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_player</span>
+            <span class="schema-desc">Player stats per match · FK: match, team, player · merges player_match_statistics</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_player_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">match_id, team_id, player_id</td><td class="mono">BIGINT</td><td>FK → match, team, player</td><td>—</td></tr>
+              <tr><td class="mono">started, minutes</td><td class="mono">BOOLEAN, INT</td><td>—</td><td>fifa_training_centre.match_appearances, relational.match_lineups</td></tr>
+              <tr><td class="mono">goals, assists, shots, xg, passes, progressive_passes</td><td class="mono">INT/DOUBLE</td><td>—</td><td>fifa_training_centre.attempts_at_goal, player_in_possession_distributions, player_line_breaks, relational.player_stats</td></tr>
+              <tr><td class="mono">pressures, recoveries, duels, cards, crosses</td><td class="mono">INT</td><td>—</td><td>fifa_training_centre.player_out_of_possession, player_crosses_open_play, player_offers_receptions</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_player_physical</span>
+            <span class="schema-desc">NEW — split from match_player: GPS/physical tracking · FK: match_player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_player_id</td><td class="mono">BIGINT</td><td>PK · FK → match_player</td><td>—</td></tr>
+              <tr><td class="mono">distance_covered_km</td><td class="mono">DOUBLE</td><td>—</td><td>fifa_training_centre.player_physical_data</td></tr>
+              <tr><td class="mono">sprints, high_intensity_runs</td><td class="mono">INT</td><td>—</td><td>fifa_training_centre.player_physical_data</td></tr>
+              <tr><td class="mono">top_speed_kmh</td><td class="mono">DOUBLE</td><td>—</td><td>fifa_training_centre.player_physical_data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_goalkeeper</span>
+            <span class="schema-desc">NEW — split from match_team: goalkeeper-specific measures · FK: match, team, player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_goalkeeper_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">match_id, team_id, player_id</td><td class="mono">BIGINT</td><td>FK → match, team, player</td><td>—</td></tr>
+              <tr><td class="mono">goals_conceded, saves</td><td class="mono">INT</td><td>—</td><td>fifa_training_centre.team_goal_prevention</td></tr>
+              <tr><td class="mono">goal_prevention_xg</td><td class="mono">DOUBLE</td><td>—</td><td>fifa_training_centre.team_goal_prevention</td></tr>
+              <tr><td class="mono">distribution_accuracy_pct</td><td class="mono">DOUBLE</td><td>—</td><td>fifa_training_centre.team_goalkeeping_distribution</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">passing_edge</span>
+            <span class="schema-desc">Directed passer→receiver edges (GraphFrames source) · composite PK · FK: match, team, player ×2</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, team_id, passer_id, receiver_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → match, team, player ×2</td><td>fifa_training_centre.passing_network_edges</td></tr>
+              <tr><td class="mono">passes</td><td class="mono">INT</td><td>NOT NULL</td><td>fifa_training_centre.passing_network_edges (pass_count)</td></tr>
+            </tbody>
+            <tfoot><tr><td colspan="4" style="font-size:0.75rem;color:var(--color-soft);padding-top:0.5rem;">No <span class="mono">progressive</span> or <span class="mono">xt_added</span> — both were aspirational in this review and never actually built; the real <span class="mono">passing_network_edges</span> source has no equivalent columns.</td></tr></tfoot>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster F — Events &amp; Awards <span class="count">(3 tables)</span></h3>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_event</span>
+            <span class="schema-desc">One row per event, every tournament · merges player_event, hist_goals, hist_bookings, hist_substitutions, hist_penalty_kicks · FK: match, team, player ×2</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">event_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>FK → match, team</td><td>—</td></tr>
+              <tr><td class="mono">player_id, secondary_player_id</td><td class="mono">BIGINT</td><td>FK → player, both nullable</td><td>primary actor / assister / sub-in / fouled player</td></tr>
+              <tr><td class="mono">event_type</td><td class="mono">STRING</td><td>NOT NULL</td><td>GOAL / SHOT / CARD / SUBSTITUTION / PENALTY_SHOOTOUT / VAR</td></tr>
+              <tr><td class="mono">minute</td><td class="mono">INT</td><td>NOT NULL</td><td>fifa_training_centre.attempts_at_goal, player_events, relational.match_events, historical.hist_goals/hist_bookings/hist_substitutions/hist_penalty_kicks</td></tr>
+              <tr><td class="mono">detail</td><td class="mono">STRING</td><td>—</td><td>card_type, xG for shots, VAR outcome, etc.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">award</span>
+            <span class="schema-desc">Golden Boot, Golden Ball, etc. per tournament · historical-only · FK: tournament</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">award_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → tournament</td><td>—</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td><td>historical.hist_awards</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">award_winner</span>
+            <span class="schema-desc">FK: award, player (nullable), team (nullable)</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">award_winner_id</td><td class="mono">BIGINT</td><td>PK</td><td>surrogate, generated</td></tr>
+              <tr><td class="mono">award_id</td><td class="mono">BIGINT</td><td>FK → award</td><td>—</td></tr>
+              <tr><td class="mono">player_id, team_id</td><td class="mono">BIGINT</td><td>FK → player, team — both nullable, one required</td><td>historical.hist_award_winners</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Cluster G — Predictions <span class="count">(2 tables)</span></h3>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_prediction_feature</span>
+            <span class="schema-desc">10 real named ML input features per match (mominullptr's feature set) — NOT the same as prediction below · composite PK: match, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → match, team</td><td>—</td></tr>
+              <tr><td class="mono">home_fifa_rank, away_fifa_rank, home_elo, away_elo, home_squad_avg_value_eur, away_squad_avg_value_eur, home_prev_avg_xg_scored, away_prev_avg_xg_scored, home_rest_days, away_rest_days</td><td class="mono">INT / DOUBLE</td><td>—</td><td>relational.match_prediction_features — real named columns, verified against landed data (not the anonymous feature_01..65 placeholder originally guessed here)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">prediction</span>
+            <span class="schema-desc">Onside Arena's actual pre-match probabilities — composite PK: match, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th><th>Sourced from (bronze)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → match, team</td><td>—</td></tr>
+              <tr><td class="mono">win_probability, draw_probability, loss_probability</td><td class="mono">DOUBLE</td><td>NOT NULL</td><td>predictions.pre_match_prediction</td></tr>
+              <tr><td class="mono">model</td><td class="mono">STRING</td><td>—</td><td>predictions.pre_match_prediction</td></tr>
+              <tr><td class="mono">prediction_timestamp</td><td class="mono">TIMESTAMP</td><td>—</td><td>predictions.pre_match_prediction</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- GOLD DATA MODEL -->
+    <!-- ============================================================ -->
+    <section id="tab-gold" class="tab-panel">
+      <h2>Gold — data model <span class="status-pill built" style="margin-left:0.5rem;vertical-align:middle;">Built</span></h2>
+      <p class="section-intro"><strong style="color:var(--color-ink);">16 tables</strong> — 6 dimensions + 10 facts — star-schema'd from the 27 Silver tables for BI/semantic consumption. <span class="mono">ingestion/lakeflow/gold.py</span> is deployed as <span class="mono">gold_pipeline</span> and has run successfully end to end against real Silver data — all 16 flows completed. Colored by role: dimensions, match-grain facts, and tournament/group-grain facts.</p>
+
+      <div class="review-note" style="background:rgba(124,143,111,0.08);border-color:rgba(124,143,111,0.3);">
+        <h3>3 real bugs found by actually running it — schema corrected to match</h3>
+        <ol>
+          <li><span class="mono">dim_team</span> — <span class="mono">country_code</span> doesn't exist. <span class="mono">silver.team</span> never actually carries one (no clean source column on <span class="mono">relational.teams</span>); the review design assumed it would. Column dropped.</li>
+          <li><span class="mono">fact_pass</span> — <span class="mono">xt_added</span> doesn't exist. <span class="mono">silver.passing_edge</span> never computed an expected-threat model; it was a documented aspiration in the Silver review that was never actually built. Column dropped (silver's own <span class="mono">PASSING_EDGE</span> diagram corrected too).</li>
+          <li><span class="mono">fact_team_match</span> — ambiguous <span class="mono">home_away</span> reference. Both the derived home/away split (from <span class="mono">silver.match</span>) and <span class="mono">silver.match_team</span>'s own <span class="mono">home_away</span> column survived a join keyed only on <span class="mono">[match_id, team_id]</span> — same class of bug as the one found building Silver's <span class="mono">team()</span> table. Fixed by dropping <span class="mono">match_team</span>'s copy before joining.</li>
+        </ol>
+      </div>
+
+      <div class="mermaid-wrap">
+        <div class="mermaid-loading" id="gold-mermaid-loading">Rendering diagram…</div>
+        <pre class="mermaid" id="gold-mermaid-source">
+erDiagram
+    DIM_TOURNAMENT {
+        bigint tournament_id PK
+        string name
+        int year
+        string host_country_name
+        int count_teams
+    }
+    DIM_STAGE {
+        bigint stage_id PK
+        bigint tournament_id FK
+        string name
+    }
+    DIM_GROUP {
+        bigint group_id PK
+        bigint tournament_id FK
+        bigint stage_id FK
+        string name
+    }
+    DIM_TEAM {
+        bigint team_id PK
+        string name
+        string code
+        string confederation_name
+        string manager_name
+    }
+    DIM_PLAYER {
+        bigint player_id PK
+        string name
+        date date_of_birth
+        string position
+    }
+    DIM_VENUE {
+        bigint venue_id PK
+        string name
+        string city
+        string country_code
+        int capacity
+    }
+    FACT_MATCH {
+        bigint match_id PK
+        bigint tournament_id FK
+        bigint stage_id FK
+        bigint group_id FK
+        bigint venue_id FK
+        bigint home_team_id FK
+        bigint away_team_id FK
+        bigint winner_team_id FK
+        date match_date
+        int home_score
+        int away_score
+        double home_xg
+        double away_xg
+    }
+    FACT_TEAM_MATCH {
+        bigint match_team_id PK
+        bigint match_id FK
+        bigint team_id FK
+        string home_away
+        string result
+        int points
+        int goals_for
+        int goals_against
+        double possession_pct
+        int shots
+    }
+    FACT_PLAYER_MATCH {
+        bigint match_player_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        boolean started
+        int goals
+        int shots
+        int passes
+        double distance_covered_km
+    }
+    FACT_GOALKEEPER_MATCH {
+        bigint match_goalkeeper_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        int shots_faced
+        int saves
+        double save_pct
+    }
+    FACT_PASS {
+        bigint match_id PK,FK
+        bigint team_id PK,FK
+        bigint passer_id PK,FK
+        bigint receiver_id PK,FK
+        int passes
+    }
+    FACT_MATCH_EVENT {
+        bigint event_id PK
+        bigint match_id FK
+        bigint team_id FK
+        bigint player_id FK
+        bigint secondary_player_id FK
+        string event_type
+        int minute
+    }
+    FACT_PREDICTION {
+        bigint match_id PK,FK
+        bigint home_team_id PK,FK
+        bigint away_team_id PK,FK
+        double home_win_probability
+        double draw_probability
+        double away_win_probability
+    }
+    FACT_TEAM_TOURNAMENT {
+        bigint team_tournament_id PK
+        bigint tournament_id FK
+        bigint team_id FK
+        bigint group_id FK
+        int matches
+        int wins
+        int draws
+        int losses
+        int goals_for
+        int goals_against
+        int points
+        double xg
+        double xga
+        int final_rank
+    }
+    FACT_TEAM_DOMINANCE {
+        bigint tournament_id PK,FK
+        bigint team_id PK,FK
+        double results_score
+        double xg_differential_score
+        double shot_quality_score
+        double chance_creation_score
+        double defensive_efficiency_score
+        double performance_dominance_score
+    }
+    FACT_GROUP_STANDING {
+        bigint group_standing_id PK
+        bigint group_id FK
+        bigint team_id FK
+        int played
+        int won
+        int drawn
+        int lost
+        int points
+        int rank
+    }
+
+    DIM_TOURNAMENT ||--o{ DIM_STAGE : has
+    DIM_TOURNAMENT ||--o{ DIM_GROUP : has
+    DIM_STAGE ||--o{ DIM_GROUP : contains
+    DIM_TOURNAMENT ||--o{ FACT_MATCH : has
+    DIM_STAGE ||--o{ FACT_MATCH : contains
+    DIM_GROUP ||--o{ FACT_MATCH : contains
+    DIM_VENUE ||--o{ FACT_MATCH : hosts
+    DIM_TEAM ||--o{ FACT_MATCH : "home team"
+    DIM_TEAM ||--o{ FACT_MATCH : "away team"
+    DIM_TEAM ||--o{ FACT_MATCH : winner
+    FACT_MATCH ||--o{ FACT_TEAM_MATCH : has
+    DIM_TEAM ||--o{ FACT_TEAM_MATCH : records
+    FACT_MATCH ||--o{ FACT_PLAYER_MATCH : has
+    DIM_TEAM ||--o{ FACT_PLAYER_MATCH : fields
+    DIM_PLAYER ||--o{ FACT_PLAYER_MATCH : plays
+    FACT_MATCH ||--o{ FACT_GOALKEEPER_MATCH : has
+    DIM_TEAM ||--o{ FACT_GOALKEEPER_MATCH : fields
+    DIM_PLAYER ||--o{ FACT_GOALKEEPER_MATCH : plays
+    FACT_MATCH ||--o{ FACT_PASS : has
+    DIM_TEAM ||--o{ FACT_PASS : records
+    DIM_PLAYER ||--o{ FACT_PASS : "passes as passer"
+    DIM_PLAYER ||--o{ FACT_PASS : "passes as receiver"
+    FACT_MATCH ||--o{ FACT_MATCH_EVENT : has
+    DIM_TEAM ||--o{ FACT_MATCH_EVENT : involved
+    DIM_PLAYER ||--o{ FACT_MATCH_EVENT : "primary actor"
+    DIM_PLAYER ||--o{ FACT_MATCH_EVENT : "secondary actor"
+    FACT_MATCH ||--o{ FACT_PREDICTION : predicted
+    DIM_TEAM ||--o{ FACT_PREDICTION : "home team"
+    DIM_TEAM ||--o{ FACT_PREDICTION : "away team"
+    DIM_TOURNAMENT ||--o{ FACT_TEAM_TOURNAMENT : has
+    DIM_TEAM ||--o{ FACT_TEAM_TOURNAMENT : ranked
+    DIM_GROUP ||--o{ FACT_TEAM_TOURNAMENT : assigns
+    FACT_TEAM_TOURNAMENT ||--|| FACT_TEAM_DOMINANCE : scores
+    DIM_GROUP ||--o{ FACT_GROUP_STANDING : ranks
+    DIM_TEAM ||--o{ FACT_GROUP_STANDING : ranked
+
+    classDef dimClass fill:#eef1f4,stroke:#5e7a9b,color:#312e2d
+    classDef matchFactClass fill:#fdf0e0,stroke:#f7901d,color:#312e2d
+    classDef tournFactClass fill:#edf4f2,stroke:#5a8f85,color:#312e2d
+
+    class DIM_TOURNAMENT,DIM_STAGE,DIM_GROUP,DIM_TEAM,DIM_PLAYER,DIM_VENUE dimClass
+    class FACT_MATCH,FACT_TEAM_MATCH,FACT_PLAYER_MATCH,FACT_GOALKEEPER_MATCH,FACT_PASS,FACT_MATCH_EVENT,FACT_PREDICTION matchFactClass
+    class FACT_TEAM_TOURNAMENT,FACT_TEAM_DOMINANCE,FACT_GROUP_STANDING tournFactClass
+        </pre>
+      </div>
+      <p class="section-intro" style="margin-bottom:1.5rem;"><span class="mono">PK,FK</span> means composite primary key + foreign key at once (same convention as the Silver diagram). <span class="mono">FACT_TEAM_TOURNAMENT ||--|| FACT_TEAM_DOMINANCE</span> is a 1:1 extension, not a normal fan-out — dominance scores are derived entirely from the tournament aggregate, one row each.</p>
+
+      <div class="review-note">
+        <h3>Decisions made drafting this — flag anything you'd change</h3>
+        <ol>
+          <li><strong>9 of the 27 Silver tables are not carried into Gold v1</strong> — <span class="mono">qualified_team</span>, <span class="mono">squad_member</span>, <span class="mono">referee</span>, <span class="mono">referee_assignment</span>, <span class="mono">manager</span>, <span class="mono">manager_appointment</span>, <span class="mono">award</span>, <span class="mono">award_winner</span>, <span class="mono">match_prediction_feature</span>. None of the 5 demo questions need officiating, coaching, qualification-route, roster, or ML-feature detail at the BI grain — full detail on all of them stays queryable directly against Silver. See the mapping table below for the per-table reasoning.</li>
+          <li><strong>Added <span class="mono">fact_group_standing</span> and <span class="mono">fact_prediction</span></strong> — neither was in the original README §6 blueprint, but both map cleanly from Silver tables that already exist (<span class="mono">group_standing</span>, <span class="mono">prediction</span>) and both are directly useful: group tables are a natural BI query, and <span class="mono">fact_prediction</span> is what README §9's "prediction/surprise analysis" demo beat needs.</li>
+          <li><strong><span class="mono">team_tournament</span> and <span class="mono">tournament_standing</span> both fold into <span class="mono">fact_team_tournament</span></strong> instead of becoming two separate gold facts — in the real Silver build they ended up as near-duplicate sources of the same team-per-tournament grain (group/rank from one, final_rank/host_performance from the other), so Gold consolidates rather than carrying the duplication forward.</li>
+          <li><strong>Merged the 4 original blueprint's event facts into one <span class="mono">fact_match_event</span></strong> and <strong>split out <span class="mono">fact_goalkeeper_match</span></strong> — same two simplifications flagged when this list was first proposed, now reflected in the diagram.</li>
+        </ol>
+      </div>
+
+      <h3 class="cluster-heading">Silver → Gold coverage <span class="count">— all 27 Silver tables accounted for</span></h3>
+      <table class="detail-table map-table">
+        <thead><tr><th>Silver table</th><th>→ Gold table</th></tr></thead>
+        <tbody>
+          <tr><td colspan="2" class="src-group">Cluster A — Tournament &amp; Reference</td></tr>
+          <tr><td class="mono">tournament</td><td class="mono">dim_tournament</td></tr>
+          <tr><td class="mono">confederation</td><td class="mono">dim_team <em>(confederation_name column)</em></td></tr>
+          <tr><td class="mono">stage</td><td class="mono">dim_stage</td></tr>
+          <tr><td class="mono">tournament_group</td><td class="mono">dim_group</td></tr>
+          <tr><td class="mono">qualified_team</td><td class="mono">— <em>(not carried forward: qualification-route detail, historical-only, not needed by the 5 demo questions)</em></td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster B — Team &amp; Player</td></tr>
+          <tr><td class="mono">team</td><td class="mono">dim_team</td></tr>
+          <tr><td class="mono">team_tournament</td><td class="mono">fact_team_tournament <em>(group_id, final_rank)</em></td></tr>
+          <tr><td class="mono">player</td><td class="mono">dim_player</td></tr>
+          <tr><td class="mono">squad_member</td><td class="mono">— <em>(not carried forward: roster/shirt-number detail, not needed at gold grain)</em></td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster C — Officials</td></tr>
+          <tr><td class="mono">referee</td><td class="mono">— <em>(not carried forward: officiating not used by the 5 demo questions)</em></td></tr>
+          <tr><td class="mono">referee_assignment</td><td class="mono">— <em>(same)</em></td></tr>
+          <tr><td class="mono">manager</td><td class="mono">— <em>(not carried forward: coaching entity not needed for Q5's framing)</em></td></tr>
+          <tr><td class="mono">manager_appointment</td><td class="mono">— <em>(same)</em></td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster D — Match Spine</td></tr>
+          <tr><td class="mono">venue</td><td class="mono">dim_venue</td></tr>
+          <tr><td class="mono">match</td><td class="mono">fact_match</td></tr>
+          <tr><td class="mono">group_standing</td><td class="mono">fact_group_standing</td></tr>
+          <tr><td class="mono">tournament_standing</td><td class="mono">fact_team_tournament <em>(final_rank, host_performance)</em></td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster E — Match Performance</td></tr>
+          <tr><td class="mono">match_team</td><td class="mono">fact_team_match</td></tr>
+          <tr><td class="mono">match_player</td><td class="mono">fact_player_match</td></tr>
+          <tr><td class="mono">match_player_physical</td><td class="mono">fact_player_match <em>(merged)</em></td></tr>
+          <tr><td class="mono">match_goalkeeper</td><td class="mono">fact_goalkeeper_match</td></tr>
+          <tr><td class="mono">passing_edge</td><td class="mono">fact_pass</td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster F — Events &amp; Awards</td></tr>
+          <tr><td class="mono">match_event</td><td class="mono">fact_match_event</td></tr>
+          <tr><td class="mono">award</td><td class="mono">— <em>(not carried forward: award metadata, peripheral)</em></td></tr>
+          <tr><td class="mono">award_winner</td><td class="mono">— <em>(not carried forward: historical-only, not needed by the 5 demo questions)</em></td></tr>
+
+          <tr><td colspan="2" class="src-group">Cluster G — Predictions</td></tr>
+          <tr><td class="mono">match_prediction_feature</td><td class="mono">— <em>(not carried forward: ML model inputs, not BI/semantic content)</em></td></tr>
+          <tr><td class="mono">prediction</td><td class="mono">fact_prediction</td></tr>
+
+          <tr><td colspan="2" class="src-group">Derived — no single Silver source</td></tr>
+          <tr><td class="mono">fact_team_match aggregated by team+tournament</td><td class="mono">fact_team_dominance <em>(normalized components)</em></td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="cluster-heading">Dimensions <span class="count">(6 tables)</span></h3>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_tournament</span>
+            <span class="schema-desc">One row per tournament ← silver.tournament</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">name, year</td><td class="mono">STRING, INT</td><td>NOT NULL</td></tr>
+              <tr><td class="mono">host_country_name</td><td class="mono">STRING</td><td>—</td></tr>
+              <tr><td class="mono">count_teams</td><td class="mono">INT</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_stage</span>
+            <span class="schema-desc">← silver.stage · FK: tournament</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">stage_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → dim_tournament</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_group</span>
+            <span class="schema-desc">← silver.tournament_group · FK: tournament, stage</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">group_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">tournament_id</td><td class="mono">BIGINT</td><td>FK → dim_tournament</td></tr>
+              <tr><td class="mono">stage_id</td><td class="mono">BIGINT</td><td>FK → dim_stage</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_team</span>
+            <span class="schema-desc">← silver.team + silver.confederation (denormalized in — no separate dim_confederation)</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">name, code</td><td class="mono">STRING</td><td>NOT NULL, code UQ</td></tr>
+              <tr><td class="mono">confederation_name</td><td class="mono">STRING</td><td>—</td></tr>
+              <tr><td class="mono">manager_name</td><td class="mono">STRING</td><td>—</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.75rem;color:var(--color-soft);margin-top:0.5rem;">No <span class="mono">country_code</span> — silver.team never carries one (relational.teams has no clean country column, just fifa_code/confederation). Dropped when gold.py actually ran (real bug: <span class="mono">UNRESOLVED_COLUMN</span>).</p>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_player</span>
+            <span class="schema-desc">← silver.player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">player_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">name</td><td class="mono">STRING</td><td>NOT NULL</td></tr>
+              <tr><td class="mono">date_of_birth, position</td><td class="mono">DATE, STRING</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">dim_venue</span>
+            <span class="schema-desc">← silver.venue</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">venue_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">name, city, country_code</td><td class="mono">STRING</td><td>name NOT NULL</td></tr>
+              <tr><td class="mono">capacity</td><td class="mono">INT</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Match-grain facts <span class="count">(7 tables)</span></h3>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_match</span>
+            <span class="schema-desc">← silver.match · FK: tournament, stage, group, venue, home/away/winner team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">tournament_id, stage_id, group_id, venue_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">home_team_id, away_team_id, winner_team_id</td><td class="mono">BIGINT</td><td>FK → dim_team, winner nullable</td></tr>
+              <tr><td class="mono">match_date, home_score, away_score</td><td class="mono">DATE, INT, INT</td><td>NOT NULL</td></tr>
+              <tr><td class="mono">home_xg, away_xg</td><td class="mono">DOUBLE</td><td>nullable — historical has none</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_team_match</span>
+            <span class="schema-desc">← silver.match_team + derived result/points/goals (from silver.match) · FK: match, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_team_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">home_away, result</td><td class="mono">STRING</td><td>result: W/D/L, penalties-aware</td></tr>
+              <tr><td class="mono">points, goals_for, goals_against</td><td class="mono">INT</td><td>derived</td></tr>
+              <tr><td class="mono">possession_pct, shots, shots_on_target, corners, fouls, offsides</td><td class="mono">DOUBLE/INT</td><td>—</td></tr>
+              <tr><td class="mono">pressures, recoveries, aerial_duels</td><td class="mono">INT</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_player_match</span>
+            <span class="schema-desc">← silver.match_player + match_player_physical merged in · FK: match, team, player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_player_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">match_id, team_id, player_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">started, position_played</td><td class="mono">BOOLEAN, STRING</td><td>—</td></tr>
+              <tr><td class="mono">goals, shots, passes, passes_completed, progressive_passes</td><td class="mono">INT</td><td>—</td></tr>
+              <tr><td class="mono">recoveries, duels</td><td class="mono">INT</td><td>—</td></tr>
+              <tr><td class="mono">distance_covered_km, top_speed_kmh</td><td class="mono">DOUBLE</td><td>from match_player_physical</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_goalkeeper_match</span>
+            <span class="schema-desc">← silver.match_goalkeeper · FK: match, team, player</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_goalkeeper_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">match_id, team_id, player_id</td><td class="mono">BIGINT</td><td>FK, player nullable (see Silver caveat)</td></tr>
+              <tr><td class="mono">shots_faced, saves</td><td class="mono">INT</td><td>—</td></tr>
+              <tr><td class="mono">save_pct</td><td class="mono">DOUBLE</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_pass</span>
+            <span class="schema-desc">← silver.passing_edge · composite PK · FK: match, team, player ×2</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, team_id, passer_id, receiver_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK</td></tr>
+              <tr><td class="mono">passes</td><td class="mono">INT</td><td>NOT NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_match_event</span>
+            <span class="schema-desc">← silver.match_event · merges the original blueprint's fact_goal/fact_shot/fact_card/fact_substitution · FK: match, team, player ×2</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">event_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">match_id, team_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">player_id, secondary_player_id</td><td class="mono">BIGINT</td><td>FK, both nullable</td></tr>
+              <tr><td class="mono">event_type, minute</td><td class="mono">STRING, INT</td><td>NOT NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_prediction</span>
+            <span class="schema-desc">← silver.prediction · feeds README §9's "prediction/surprise analysis" demo beat · FK: match, home/away team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, home_team_id, away_team_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK</td></tr>
+              <tr><td class="mono">home_win_probability, draw_probability, away_win_probability</td><td class="mono">DOUBLE</td><td>NOT NULL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <h3 class="cluster-heading">Tournament &amp; group-grain facts <span class="count">(3 tables)</span></h3>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_team_tournament</span>
+            <span class="schema-desc">The semantic-layer foundation — aggregated from fact_team_match + silver.team_tournament + silver.tournament_standing · FK: tournament, team, group</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_tournament_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">tournament_id, team_id, group_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">matches, wins, draws, losses</td><td class="mono">INT</td><td>aggregated</td></tr>
+              <tr><td class="mono">goals_for, goals_against, points</td><td class="mono">INT</td><td>aggregated</td></tr>
+              <tr><td class="mono">xg, xga</td><td class="mono">DOUBLE</td><td>aggregated, 2026 only</td></tr>
+              <tr><td class="mono">final_rank</td><td class="mono">INT</td><td>from tournament_standing</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_team_dominance</span>
+            <span class="schema-desc">README §7's governed Performance Dominance Score — normalized components, one row per team per tournament · 1:1 with fact_team_tournament</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">tournament_id, team_id</td><td class="mono">BIGINT</td><td>PK (composite) · FK → fact_team_tournament</td></tr>
+              <tr><td class="mono">results_score, xg_differential_score</td><td class="mono">DOUBLE</td><td>min-max normalized, 0–1</td></tr>
+              <tr><td class="mono">shot_quality_score, chance_creation_score, defensive_efficiency_score</td><td class="mono">DOUBLE</td><td>min-max normalized, 0–1</td></tr>
+              <tr><td class="mono">performance_dominance_score</td><td class="mono">DOUBLE</td><td>0.30/0.25/0.15/0.15/0.15 weighted sum — weights live only here</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">fact_group_standing</span>
+            <span class="schema-desc">← silver.group_standing · FK: group, team</span>
+          </span>
+          <span class="status-pill built">Built</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraint</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">group_standing_id</td><td class="mono">BIGINT</td><td>PK</td></tr>
+              <tr><td class="mono">group_id, team_id</td><td class="mono">BIGINT</td><td>FK</td></tr>
+              <tr><td class="mono">played, won, drawn, lost, points, rank</td><td class="mono">INT</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SEMANTIC MODEL -->
+    <!-- ============================================================ -->
+    <section id="tab-semantic" class="tab-panel">
+      <h2>Semantic — Metric Views <span class="status-pill built" style="margin-left:0.5rem;vertical-align:middle;">Deployed</span></h2>
+      <p class="section-intro"><strong style="color:var(--color-ink);">5 Unity Catalog Metric Views</strong> — governed vocabulary over the 16 Gold tables, deployed to <span class="mono">worldcupiq_catalog.semantic</span> via <span class="mono">CREATE OR REPLACE VIEW ... WITH METRICS LANGUAGE YAML</span>, one <span class="mono">.metricview.yaml</span> file per view under <span class="mono">semantic/</span>. Two grains: team × tournament (2 views, sourced from the tournament-grain Gold facts) and team/player/goalkeeper × match (3 views, sourced from the match-grain Gold facts). Every measure is queried with <span class="mono">MEASURE(col)</span> or <span class="mono">AGG(col)</span> — plain column references on a measure fail with <span class="mono">METRIC_VIEW_MISSING_MEASURE_FUNCTION</span>, confirmed live.</p>
+
+      <div class="review-note" style="background:rgba(124,143,111,0.08);border-color:rgba(124,143,111,0.3);">
+        <h3>2 real findings from actually deploying and querying these</h3>
+        <ol>
+          <li><strong>UC Metric View joins are single-hop from <span class="mono">source</span> only</strong> — a join's <span class="mono">on:</span> clause can't reference another join's alias. Chaining <span class="mono">dim_tournament</span>/<span class="mono">dim_stage</span>/<span class="mono">dim_venue</span> off the already-joined <span class="mono">gold.fact_match</span> alias failed with <span class="mono">UNRESOLVED_COLUMN</span>. Since <span class="mono">tournament_id</span>/<span class="mono">stage_id</span>/<span class="mono">venue_id</span> live only on <span class="mono">fact_match</span>, not on the match-grain fact tables themselves, the 3 match-grain views expose those as raw IDs rather than resolved names (no <span class="mono">tournament_year</span>, <span class="mono">stage_name</span>, <span class="mono">venue_name</span> in those three) — resolve them downstream instead.</li>
+          <li><strong><span class="mono">goalkeeper_match_performance.player_name</span> was null on every row</strong> — traced to <span class="mono">gold.fact_goalkeeper_match.player_id</span> being null on all 208 rows, itself traced to <span class="mono">silver.match_goalkeeper</span> never resolving a starting keeper's identity. Fixed in <span class="mono">silver.py</span>'s <span class="mono">match_goalkeeper()</span> (join to <span class="mono">match_appearances</span>' starting GK per <span class="mono">match_team_id</span>), redeployed through <span class="mono">silver_pipeline</span> → <span class="mono">gold_pipeline</span>, reverified live — e.g. Jordan Pickford now resolves correctly with 18 saves.</li>
+        </ol>
+      </div>
+
+      <div class="mermaid-wrap">
+        <div class="mermaid-loading" id="semantic-mermaid-loading">Rendering diagram…</div>
+        <pre class="mermaid" id="semantic-mermaid-source">
+flowchart TB
+    subgraph TG["Tournament grain — team x tournament"]
+        direction TB
+        FTT["gold.fact_team_tournament"]
+        FTD["gold.fact_team_dominance"]
+        TP[["semantic.team_performance"]]
+        TDOM[["semantic.team_dominance"]]
+        FTT --> TP
+        FTD --> TDOM
+    end
+
+    subgraph MG["Match grain"]
+        direction TB
+        FTM["gold.fact_team_match (team x match)"]
+        FPM["gold.fact_player_match (player x match)"]
+        FGM["gold.fact_goalkeeper_match (goalkeeper x match)"]
+        MP[["semantic.match_performance"]]
+        PMP[["semantic.player_match_performance"]]
+        GMP[["semantic.goalkeeper_match_performance"]]
+        FTM --> MP
+        FPM --> PMP
+        FGM --> GMP
+    end
+
+    classDef goldClass fill:#fdf0e0,stroke:#f7901d,color:#312e2d
+    classDef semClass fill:#eef1f4,stroke:#5e7a9b,color:#312e2d
+
+    class FTT,FTD,FTM,FPM,FGM goldClass
+    class TP,TDOM,MP,PMP,GMP semClass
+        </pre>
+      </div>
+      <p class="section-intro" style="margin-bottom:1.5rem;">Double-bordered boxes are the deployed Metric Views; plain boxes are the Gold facts they source from. Each view joins in the relevant dimension tables (<span class="mono">dim_team</span>, <span class="mono">dim_player</span>, <span class="mono">dim_tournament</span>) for human-readable names — omitted from the diagram for clarity, see each view's detail below.</p>
+
+      <h3 class="cluster-heading">View coverage <span class="count">— all 5 deployed and verified live</span></h3>
+      <table class="detail-table map-table">
+        <thead><tr><th>Metric View</th><th>Grain</th><th>Source Gold table</th><th>Dimensions</th><th>Measures</th></tr></thead>
+        <tbody>
+          <tr><td colspan="5" class="src-group">Tournament grain</td></tr>
+          <tr><td class="mono">team_performance</td><td>team × tournament</td><td class="mono">fact_team_tournament</td><td>10</td><td>20</td></tr>
+          <tr><td class="mono">team_dominance</td><td>team × tournament</td><td class="mono">fact_team_dominance</td><td>5</td><td>6</td></tr>
+          <tr><td colspan="5" class="src-group">Match grain</td></tr>
+          <tr><td class="mono">match_performance</td><td>team × match</td><td class="mono">fact_team_match</td><td>9</td><td>19</td></tr>
+          <tr><td class="mono">player_match_performance</td><td>player × match</td><td class="mono">fact_player_match</td><td>9</td><td>11</td></tr>
+          <tr><td class="mono">goalkeeper_match_performance</td><td>goalkeeper × match</td><td class="mono">fact_goalkeeper_match</td><td>7</td><td>3</td></tr>
+        </tbody>
+      </table>
+
+      <details class="schema-block" open>
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">team_performance</span>
+            <span class="schema-desc">Grain: team × tournament ← gold.fact_team_tournament + dim_team + dim_tournament</span>
+          </span>
+          <span class="status-pill built">Deployed</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Dimensions</th><th>Measures</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_id, team_name, team_code, confederation_name</td><td class="mono">matches, wins, draws, losses, points</td></tr>
+              <tr><td class="mono">tournament_id, tournament_name, tournament_year</td><td class="mono">goals_for, goals_against, goal_difference</td></tr>
+              <tr><td class="mono">group_id, final_rank, host_performance</td><td class="mono">xg_for, xg_against, xg_differential</td></tr>
+              <tr><td></td><td class="mono">shot_conversion, shot_quality, shot_accuracy</td></tr>
+              <tr><td></td><td class="mono">defensive_efficiency, chance_creation</td></tr>
+              <tr><td></td><td class="mono">possession_pct, shots, shots_on_target, pressures</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.75rem;color:var(--color-soft);margin-top:0.5rem;">No pass completion here — <span class="mono">fact_team_tournament</span> doesn't aggregate passes at team-tournament grain. See <span class="mono">player_match_performance</span>.</p>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">team_dominance</span>
+            <span class="schema-desc">Grain: team × tournament ← gold.fact_team_dominance + dim_team + dim_tournament</span>
+          </span>
+          <span class="status-pill built">Deployed</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Dimensions</th><th>Measures</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">team_id, team_name</td><td class="mono">results_score, xg_differential_score</td></tr>
+              <tr><td class="mono">tournament_id, tournament_name, tournament_year</td><td class="mono">shot_quality_score, chance_creation_score</td></tr>
+              <tr><td></td><td class="mono">defensive_efficiency_score</td></tr>
+              <tr><td></td><td class="mono"><strong>performance_dominance_score</strong></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.75rem;color:var(--color-soft);margin-top:0.5rem;">Weights (0.30/0.25/0.15/0.15/0.15) are computed upstream in <span class="mono">gold.py</span>, not in this YAML — this view re-exposes the already-weighted score under governed names. The <span class="mono">best_team</span> context policy (README §9) points here.</p>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">match_performance</span>
+            <span class="schema-desc">Grain: team × match ← gold.fact_team_match + dim_team + fact_match</span>
+          </span>
+          <span class="status-pill built">Deployed</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Dimensions</th><th>Measures</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, match_date, team_id, team_name</td><td class="mono">points, goals_for, goals_against, goal_difference</td></tr>
+              <tr><td class="mono">home_away, result</td><td class="mono">xg_for, xg_against, xg_differential</td></tr>
+              <tr><td class="mono">tournament_id, stage_id, venue_id <em>(raw IDs)</em></td><td class="mono">shot_conversion, shot_quality, shot_accuracy</td></tr>
+              <tr><td></td><td class="mono">possession_pct, shots, shots_on_target</td></tr>
+              <tr><td></td><td class="mono">corners, fouls, offsides, pressures</td></tr>
+              <tr><td></td><td class="mono">recoveries, aerial_duels_won</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">player_match_performance</span>
+            <span class="schema-desc">Grain: player × match ← gold.fact_player_match + dim_player + dim_team + fact_match</span>
+          </span>
+          <span class="status-pill built">Deployed</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Dimensions</th><th>Measures</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, match_date, player_id, player_name</td><td class="mono">goals, shots, shot_conversion</td></tr>
+              <tr><td class="mono">position_played, started</td><td class="mono">passes, passes_completed, pass_completion_pct</td></tr>
+              <tr><td class="mono">team_id, team_name, tournament_id <em>(raw ID)</em></td><td class="mono">progressive_passes, recoveries, duels</td></tr>
+              <tr><td></td><td class="mono">distance_covered_km, top_speed_kmh</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="schema-block">
+        <summary>
+          <span class="schema-summary-left">
+            <span class="schema-name">goalkeeper_match_performance</span>
+            <span class="schema-desc">Grain: goalkeeper (player) × match ← gold.fact_goalkeeper_match + dim_player + dim_team + fact_match</span>
+          </span>
+          <span class="status-pill built">Deployed</span>
+        </summary>
+        <div class="schema-body">
+          <table class="detail-table" style="margin-bottom:0;">
+            <thead><tr><th>Dimensions</th><th>Measures</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">match_id, match_date, player_id, player_name</td><td class="mono">shots_faced, saves</td></tr>
+              <tr><td class="mono">team_id, team_name, tournament_id <em>(raw ID)</em></td><td class="mono">save_percentage</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.75rem;color:var(--color-soft);margin-top:0.5rem;"><span class="mono">player_name</span> was null on every row until the <span class="mono">silver.match_goalkeeper</span> fix above — verify with the queries in README.md or ask for the validation query set.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- KNOWLEDGE LAYER / ONTOLOGY (in progress) -->
+    <!-- ============================================================ -->
+    <section id="tab-ontology" class="tab-panel">
+      <h2>Knowledge Layer — Ontology <span class="status-pill review" style="margin-left:0.5rem;vertical-align:middle;">In progress</span></h2>
+      <p class="section-intro">Phase 6 is underway using <a href="https://github.com/databrickslabs/ontobricks" target="_blank" rel="noopener">OntoBricks</a> (Databricks Labs) instead of the hand-rolled <span class="mono">ontology/entities.sql</span> + GraphFrames design originally scoped in README §8 — an LLM-assisted ontology designer running against the real <span class="mono">worldcupiq_catalog.gold</span> and <span class="mono">.semantic</span> objects, backed by a Lakebase (Postgres) registry, all on this same premium workspace.</p>
+
+      <div class="detail-card-grid">
+        <div class="card">
+          <p class="eyebrow">Infrastructure</p>
+          <div class="card-header"><span class="card-dot ink"></span><h3>OntoBricks + Lakebase</h3></div>
+          <ul>
+            <li>OntoBricks run locally (<span class="mono">scripts/start.sh</span>, localhost:8000) against the <span class="mono">dev</span> workspace — not yet deployed as a Databricks App</li>
+            <li>Registry backend: Lakebase Postgres project <span class="mono">ontobricks-app</span>, branch <span class="mono">production</span>, database <span class="mono">databricks_postgres</span> — provisioned via <span class="mono">databricks postgres create-project</span> (branch + default database auto-created with it)</li>
+            <li>Registry catalog/volume: <span class="mono">worldcupiq_catalog.ontology</span> schema + the <span class="mono">OntoBricksRegistry</span> UC Volume (binary artifact uploads only — domain/version/permission data itself lives in Lakebase, not UC)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Domain</p>
+          <div class="card-header"><span class="card-dot coral"></span><h3>Worldcupiq</h3></div>
+          <ul>
+            <li>Data sources imported from Unity Catalog: <span class="mono">worldcupiq_catalog.gold</span> (16 tables) + <span class="mono">worldcupiq_catalog.semantic</span> (5 Metric Views) — 21 objects, 100% table + column descriptions once two OntoBricks bugs were fixed (see findings below)</li>
+            <li>Ontology guidelines written to steer the Wizard toward business entity names (Team, Match, Player, …) and away from making every measurement fact a disconnected top-level entity</li>
+            <li>Entities generated by the Ontology Wizard (LLM agent) from the imported metadata — 16 entities, 1:1 with the 16 gold tables, correctly named and typed</li>
+          </ul>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Current step</p>
+          <div class="card-header"><span class="card-dot muted"></span><h3>Visual mapping</h3></div>
+          <ul>
+            <li>Mapping every entity's fields to the real <span class="mono">catalog.schema.table.column</span> they come from, via the Visual Mapping Designer</li>
+            <li>One entity/relationship at a time — see finding 2 below</li>
+            <li>Next: finish mapping, then build the Knowledge Graph (materializes triples) and expose UC functions for traversal</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="review-note">
+        <h3>2 real findings from actually building this</h3>
+        <ol>
+          <li><strong>The Ontology Wizard couldn't wire relationships for every entity it created.</strong> Of the 16 auto-generated entities, 7 came out completely disconnected — <span class="mono">Player</span>, <span class="mono">Stage</span>, and the 5 measurement/performance facts (<span class="mono">Team Match Performance</span>, <span class="mono">Player Match Performance</span>, <span class="mono">Goalkeeper Match Performance</span>, <span class="mono">Passing Edge</span>, <span class="mono">Team Tournament Performance</span>, <span class="mono">Team Dominance Score</span>). The entities themselves were correctly sourced from real tables; the LLM just didn't finish drawing edges to them. Fixed by manually specifying and adding 25 additional relationships (listed below), each name kept globally unique per OntoBricks' constraint that a relationship name can't be reused across different entity pairs (e.g. <span class="mono">teamMatchStatsForTeam</span> / <span class="mono">playerMatchStatsForTeam</span> / <span class="mono">gkMatchStatsForTeam</span> instead of three <span class="mono">forTeam</span>s).</li>
+          <li><strong>Node/attribute mapping in the Visual Mapping Designer is slow and strictly one-at-a-time.</strong> Despite OntoBricks' own docs describing an "Auto-Map" step ("LLM generates SQL mappings for every entity and relationship") as part of a 4-click automated pipeline, mapping in practice requires clicking through each entity and relationship individually to configure its data mapping — no bulk-apply observed for a graph this size (16 entities, 30+ relationships). Budget real time for this step; it's the current bottleneck, not domain setup or ontology generation.</li>
+        </ol>
+      </div>
+
+      <div class="review-note" style="background:rgba(124,143,111,0.08);border-color:rgba(124,143,111,0.3);">
+        <h3>3 bugs found and fixed in OntoBricks itself while standing this up</h3>
+        <ol>
+          <li><strong><span class="mono">get_table_comment()</span> used psycopg-style <span class="mono">%s</span> placeholders</strong> against a <span class="mono">databricks-sql-connector</span> cursor, which requires <span class="mono">?</span> — every table-comment lookup failed with <span class="mono">PARSE_SYNTAX_ERROR</span>, silently reported as "0% table descriptions" even though the comments existed in UC. Same bug found and fixed in <span class="mono">probe_schema_has_tables()</span>.</li>
+          <li><strong><span class="mono">check_table_select_permission()</span> ran <span class="mono">SELECT * FROM … LIMIT 0</span></strong> as its access probe — star-expansion against a Unity Catalog Metric View pulls in measure columns unwrapped, which fails with <span class="mono">METRIC_VIEW_MISSING_MEASURE_FUNCTION</span> even under <span class="mono">LIMIT 0</span>, showing as a false "permission denied" on all 5 semantic views. Fixed by projecting a literal (<span class="mono">SELECT 1 …</span>) instead, which still exercises the SELECT grant without touching any column. Same fix applied to the identical probe in <span class="mono">Mapping.py</span>'s relationship-mapping permission check.</li>
+          <li><strong>The SQL Warehouse ID silently pointed at a warehouse that no longer existed</strong> (<span class="mono">.env</span> had the right ID; a stale ID was persisted separately in OntoBricks' own "stored globally" app config) — catalogs hung forever loading with no error logged, since the SDK call never resolved against a nonexistent resource. Fixed by re-selecting the warehouse through OntoBricks' own Databricks settings screen.</li>
+        </ol>
+      </div>
+
+      <h3 class="cluster-heading">OntoBricks — Ontology Designer — before &amp; after</h3>
+      <p class="section-intro">Actual screenshots from OntoBricks' Ontology Designer (force-directed graph view). Left: right after the Wizard finished generating — 16 entities created, but only the ones near <span class="mono">Team</span> got wired; 7 entities sit disconnected at the bottom. Right: after manually adding the 25 relationships listed below — every entity connected, though dense enough near the <span class="mono">Team</span>/<span class="mono">Match</span> hubs that OntoBricks' own layout struggles to keep labels legible at this node count.</p>
+
+      <div class="screenshot-grid">
+        <div class="screenshot-frame">
+          <img src="docs/assets/ontology/graph-initial-sparse.png" alt="Ontology Designer graph immediately after Wizard generation — Team, Group, Prediction, Match, Venue, Match Event, Tournament, Group Standing connected; 7 entities (Player, Stage, and 5 performance facts) sitting disconnected below with no edges.">
+          <p class="screenshot-caption">Wizard output — 7 of 16 entities orphaned</p>
+        </div>
+        <div class="screenshot-frame">
+          <img src="docs/assets/ontology/graph-fully-connected.png" alt="Ontology Designer graph after manually adding 25 relationships — all 16 entities connected, dense web of edges converging on Team and Match.">
+          <p class="screenshot-caption">After manual relationship wiring — fully connected</p>
+        </div>
+      </div>
+
+      <h3 class="cluster-heading">25 relationships added to close the graph</h3>
+      <p class="section-intro">Every relationship name kept globally unique — OntoBricks doesn't allow the same relationship name reused across different entity pairs, so generic names like <span class="mono">forTeam</span> or <span class="mono">forMatch</span> had to become entity-specific (<span class="mono">teamMatchStatsForTeam</span>, <span class="mono">playerMatchStatsForMatch</span>, …).</p>
+      <table class="detail-table">
+        <thead><tr><th>Source entity</th><th>Relationship</th><th>Target</th></tr></thead>
+        <tbody>
+          <tr><td>Team Match Performance</td><td class="mono">teamMatchStatsForTeam</td><td>Team</td></tr>
+          <tr><td>Team Match Performance</td><td class="mono">teamMatchStatsForMatch</td><td>Match</td></tr>
+          <tr><td>Player Match Performance</td><td class="mono">playerMatchStatsForPlayer</td><td>Player</td></tr>
+          <tr><td>Player Match Performance</td><td class="mono">playerMatchStatsForMatch</td><td>Match</td></tr>
+          <tr><td>Player Match Performance</td><td class="mono">playerMatchStatsForTeam</td><td>Team</td></tr>
+          <tr><td>Goalkeeper Match Performance</td><td class="mono">gkMatchStatsForPlayer</td><td>Player</td></tr>
+          <tr><td>Goalkeeper Match Performance</td><td class="mono">gkMatchStatsForMatch</td><td>Match</td></tr>
+          <tr><td>Goalkeeper Match Performance</td><td class="mono">gkMatchStatsForTeam</td><td>Team</td></tr>
+          <tr><td>Passing Edge</td><td class="mono">passingEdgePasser</td><td>Player</td></tr>
+          <tr><td>Passing Edge</td><td class="mono">passingEdgeReceiver</td><td>Player</td></tr>
+          <tr><td>Passing Edge</td><td class="mono">passingEdgeForMatch</td><td>Match</td></tr>
+          <tr><td>Passing Edge</td><td class="mono">passingEdgeForTeam</td><td>Team</td></tr>
+          <tr><td>Team Tournament Performance</td><td class="mono">tournamentStatsForTeam</td><td>Team</td></tr>
+          <tr><td>Team Tournament Performance</td><td class="mono">tournamentStatsForTournament</td><td>Tournament</td></tr>
+          <tr><td>Team Tournament Performance</td><td class="mono">tournamentStatsForGroup</td><td>Group</td></tr>
+          <tr><td>Team Dominance Score</td><td class="mono">dominanceScoreForTeam</td><td>Team</td></tr>
+          <tr><td>Team Dominance Score</td><td class="mono">dominanceScoreForTournament</td><td>Tournament</td></tr>
+          <tr><td>Match Event</td><td class="mono">eventPrimaryPlayer</td><td>Player</td></tr>
+          <tr><td>Match Event</td><td class="mono">eventSecondaryPlayer</td><td>Player</td></tr>
+          <tr><td>Match Event</td><td class="mono">eventForTeam</td><td>Team</td></tr>
+          <tr><td>Stage</td><td class="mono">stageOfTournament</td><td>Tournament</td></tr>
+          <tr><td>Group</td><td class="mono">groupOfStage</td><td>Stage</td></tr>
+          <tr><td>Match</td><td class="mono">matchInStage</td><td>Stage</td></tr>
+          <tr><td>Group Standing</td><td class="mono">groupStandingForGroup</td><td>Group</td></tr>
+          <tr><td>Group Standing</td><td class="mono">groupStandingForTeam</td><td>Team</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="cluster-heading">Next: Visual Mapping Designer</h3>
+      <p class="section-intro">With the graph fully connected, the current step maps every entity and relationship to its real backing <span class="mono">catalog.schema.table.column</span> — one at a time (see finding 2 above). The designer color-codes progress: <strong>Mapped</strong> (green, solid), <strong>Attributes Missing</strong> (orange dashed), <strong>Not Mapped</strong> (red dashed), <strong>Inheritance</strong> (grey dashed), <strong>Excluded</strong> (light grey solid). Almost the entire graph below still reads red — mapping just started. Once mapping is complete, the next step is building the Knowledge Graph itself (materializing triples into <span class="mono">worldcupiq_catalog.ontology</span>) — see the Planned tab for what follows after that.</p>
+
+      <div class="screenshot-frame" style="max-width:800px;">
+        <img src="docs/assets/ontology/mapping-designer.png" alt="Visual Mapping Designer showing the same 16-entity graph with almost every relationship still marked Not Mapped (red dashed lines) — mapping has just begun.">
+        <p class="screenshot-caption">Visual Mapping Designer — mapping in progress, mostly Not Mapped (red)</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- PLANNED -->
+    <!-- ============================================================ -->
+    <section id="tab-planned" class="tab-panel">
+      <h2>Planned — Phase 6–9</h2>
+      <p class="section-intro">Everything below is scaffolded in the proposed repo structure (README.md §4) but not yet deployed as real UC objects — no tables, no config beyond the empty schema. Phase 5 (Semantic) is done — see the <a href="#semantic" class="phase-jump">Semantic Model tab</a>. Phase 6 (Ontology) is underway — see the <a href="#ontology" class="phase-jump">Knowledge Layer tab</a>. Phase 7 (Context) is also underway in parallel.</p>
+
+      <div class="phase-list">
+        <div class="phase-row">
+          <span class="phase-num">Phase 6</span>
+          <span class="phase-name">Ontology <span class="status-pill review" style="margin-left:0.4rem;">In progress</span></span>
+          <span class="phase-desc">Built via OntoBricks instead of hand-rolled GraphFrames — domain created, 16 entities generated and fully connected, mapping to gold/semantic columns underway. See the <a href="#ontology" class="phase-jump">Knowledge Layer tab</a>.</span>
+          <span class="phase-path">OntoBricks domain "Worldcupiq" · worldcupiq_catalog.ontology (Lakebase-backed registry)</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 7</span>
+          <span class="phase-name">Context <span class="status-pill review" style="margin-left:0.4rem;">In progress</span></span>
+          <span class="phase-desc">Concept store (governed definitions), policies.json (e.g. best_team), Vector Search index over concepts/policies/ontology docs.</span>
+          <span class="phase-path">context/concept_store.sql, policies.json, vector_index.py</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 8</span>
+          <span class="phase-name">Genie + Agent</span>
+          <span class="phase-desc">Genie space over Metric Views only (never bronze/silver). Mosaic AI Agent Framework tools (Genie, ontology fns, retriever, lineage), MLflow eval.</span>
+          <span class="phase-path">genie/space_config.md, agent/tools.py, agent.py, eval.py</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 9</span>
+          <span class="phase-name">App + Orchestration</span>
+          <span class="phase-desc">Streamlit app on Databricks Apps (Genie Conversation API + agent endpoint), full end-to-end Workflow beyond bronze_refresh.</span>
+          <span class="phase-path">app/app.py, app.yaml, workflows/worldcupiq_job.yaml</span>
+        </div>
+      </div>
+
+      <p class="section-intro" style="margin-bottom:0;">Also not started: 01_grants.sql (UC groups + app service principal), MLflow tracing, and agent registration in Unity Catalog.</p>
+    </section>
+
+    <p class="colophon">WorldCupIQ · Phase 0–5 (foundation, sources, bronze, silver, gold, semantic) built · Phase 6–7 (ontology, context) in progress · Phase 8–9 planned · rendered with Diagram Design</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11.17.0/dist/mermaid.min.js"></script>
+  <script>
+    // Base theme only — per-entity cluster colors come from the classDef/class
+    // block at the end of the erDiagram source itself, not from here.
+    if (window.mermaid) {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#ffffff',
+          primaryTextColor: '#312e2d',
+          primaryBorderColor: '#585554',
+          lineColor: '#8e8e8e',
+          fontFamily: "'Geist', 'Geist Mono', sans-serif",
+          fontSize: '13px'
+        }
+      });
+    }
+  </script>
+  <script>
+    (function () {
+      var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+      var panels = Array.prototype.slice.call(document.querySelectorAll('.tab-panel'));
+      // a.node-link (diagram nodes) + any plain in-page hash link (e.g. the
+      // "Silver Model tab" cross-reference in the Planned tab).
+      var links = Array.prototype.slice.call(document.querySelectorAll('a.node-link, a[href^="#"]'));
+
+      // Mermaid needs its container to actually be laid out (not display:none)
+      // to measure text/compute the diagram, so each tab's diagram is rendered
+      // lazily the first time that tab becomes visible, not on page load.
+      // Keyed by tab id so Silver's and Gold's diagrams render independently.
+      var mermaidRenderedFor = {};
+      function renderMermaidIfNeeded(tabId) {
+        if (mermaidRenderedFor[tabId] || !window.mermaid) return;
+        var panel = document.getElementById('tab-' + tabId);
+        if (!panel) return;
+        var host = panel.querySelector('pre.mermaid');
+        var loading = panel.querySelector('.mermaid-loading');
+        if (!host) return;
+        mermaidRenderedFor[tabId] = true;
+        mermaid.run({ nodes: [host] })
+          .then(function () { if (loading) loading.style.display = 'none'; })
+          .catch(function (err) {
+            mermaidRenderedFor[tabId] = false;
+            if (loading) loading.textContent = 'Diagram failed to render: ' + (err && err.message ? err.message : err);
+          });
+      }
+
+      function showTab(id) {
+        if (!document.getElementById('tab-' + id)) id = 'overview';
+        panels.forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + id); });
+        tabs.forEach(function (t) {
+          var isActive = t.getAttribute('data-tab') === id;
+          t.classList.toggle('active', isActive);
+          t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+        try { history.replaceState(null, '', '#' + id); } catch (e) { /* opaque origin, ignore */ }
+        renderMermaidIfNeeded(id);
+        return id;
+      }
+
+      // Tab strip — switches panel directly, doesn't depend on hash navigation.
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () { showTab(t.getAttribute('data-tab')); });
+      });
+
+      // Diagram nodes — <a href="#id"> for no-JS/keyboard fallback, intercepted
+      // here so the click also works when location.hash mutation is blocked
+      // (e.g. sandboxed/opaque-origin previews) and so the page scrolls to the
+      // panel instead of just updating the address bar.
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var id = showTab(a.getAttribute('href').replace('#', ''));
+          var target = document.getElementById('tab-' + id);
+          if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+
+      window.addEventListener('hashchange', function () {
+        showTab(location.hash.replace('#', '') || 'overview');
+      });
+
+      showTab(location.hash.replace('#', '') || 'overview');
+    })();
+  </script>
+</body>
+</html>

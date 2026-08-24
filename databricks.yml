@@ -1,0 +1,247 @@
+# Databricks Asset Bundle — WorldCupIQ
+#
+# Bronze layer, split across two ingestion mechanisms depending on the source:
+#
+# 1. Auto Loader pipeline (Lakeflow Declarative Pipeline, ingestion/lakeflow/bronze.py)
+#    for the one source that is NOT a git repo — Onside Arena predictions. FIFA
+#    official (fifa.com pages) was dropped: no clean CSV/JSON feed exists behind
+#    those pages, and matches/venues are already covered by the relational
+#    dataset below, so bronze_pipeline_fifa_official was removed rather than
+#    building a scraper for one source.
+#
+# 2. Lakeflow Connect GitHub ingestion (github_ingestion_pipeline) for the three
+#    sources that live in git repos — FIFA Training Centre-derived, the relational
+#    dataset, and historical World Cups — forked into the yuvapraveentiger28 GitHub
+#    ORGANIZATION (see docs/demo-design-notes.md §2). Must be an org, not a personal
+#    account — the connector calls the GitHub org-repos API endpoint
+#    (/orgs/{name}/repos), which 404s for a personal account (confirmed the hard
+#    way). Lands raw file content (one row per file, unparsed) into
+#    fifaworldcup_github_raw.repo_contents. Connection `github-fifaworldcupiq` must
+#    already exist (Catalog Explorer > External Data > Connections) — created
+#    manually, OAuth can't be scripted.
+#
+# 3. Parsing (parse_pipeline_<datasource>, ingestion/lakeflow/bronze_github_parse.py)
+#    turns the raw repo_contents blobs from (2) into real structured tables — one
+#    pipeline per datasource again, same one-schema-per-pipeline constraint as (1).
+#    Depends on (2) having run first (see the job's task dependencies below).
+#
+# 4. Silver (silver_pipeline, ingestion/lakeflow/silver.py) — normalizes and
+#    entity-resolves all 4 bronze sources into the 27-table model reviewed in
+#    architecture.html's Silver Model tab. Depends on all 4 bronze-producing
+#    tasks (predictions + the 3 parse pipelines).
+#
+# 5. Gold (gold_pipeline, ingestion/lakeflow/gold.py) — star schema (6 dims +
+#    10 facts) built from Silver, reviewed in architecture.html's Gold Model
+#    tab. Depends on refresh_silver.
+#
+# Deploy: databricks bundle deploy -t dev
+# Run one: databricks bundle run bronze_pipeline_predictions -t dev
+# Run all: databricks bundle run bronze_refresh -t dev   (the job below, now bronze + silver + gold)
+
+bundle:
+  name: worldcupiq
+
+variables:
+  catalog:
+    description: >
+      Unity Catalog catalog. On the shared `mrlc-catalog` (dev), WorldCupIQ
+      doesn't own the catalog — other projects live in it too — so schemas
+      are namespaced fifaworldcup_<...> (see schema_prefix below). On a
+      dedicated catalog (e.g. worldcupiq_catalog), no namespacing is needed.
+    default: mrlc-catalog
+  schema_prefix:
+    description: >
+      Prefix applied to every schema name this project creates/reads,
+      read by the pipeline Python files via spark.conf.get("schema_prefix", ...).
+      "fifaworldcup_" on a shared catalog (dev) so this project's schemas
+      don't collide with others'; "" on a dedicated catalog, since the
+      catalog itself already scopes everything to this project.
+    default: fifaworldcup_
+  github_connection:
+    description: Name of the pre-created Databricks GitHub connection (OAuth, set up manually).
+    default: github-fifaworldcupiq
+  github_username:
+    description: >
+      GitHub ORGANIZATION that owns the forked source repos (must be an org —
+      the connector's source_schema resolves via the org-repos API endpoint,
+      which doesn't work for personal accounts). Forked/transferred here
+      (rather than reading Alamyy/mominullptr/jfjelstul's originals directly)
+      so the connection's own OAuth identity unambiguously owns the
+      source_schema.
+    default: yuvapraveentiger28
+
+resources:
+  pipelines:
+    bronze_pipeline_predictions:
+      name: worldcupiq_bronze_predictions
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}bronze_predictions
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        datasource_filter: predictions
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/bronze.py
+
+    github_ingestion_pipeline:
+      name: worldcupiq_github_raw
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}github_raw
+      ingestion_definition:
+        connection_name: ${var.github_connection}
+        objects:
+          - table:
+              source_schema: ${var.github_username}
+              source_table: repo_contents
+              destination_catalog: ${var.catalog}
+              destination_schema: ${var.schema_prefix}github_raw
+      # Lands ALL of ${var.github_username}'s repos' file trees (no per-repo
+      # filter exists on this connector) — the downstream parsing step must
+      # filter to the 3 relevant forks by repository name/path.
+
+    parse_pipeline_fifa_training_centre:
+      name: worldcupiq_parse_fifa_training_centre
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}bronze_fifa_training_centre
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        datasource_filter: fifa_training_centre
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/bronze_github_parse.py
+
+    parse_pipeline_relational:
+      name: worldcupiq_parse_relational
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}bronze_relational
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        datasource_filter: relational
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/bronze_github_parse.py
+
+    parse_pipeline_historical:
+      name: worldcupiq_parse_historical
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}bronze_historical
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        datasource_filter: historical
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/bronze_github_parse.py
+
+    silver_pipeline:
+      name: worldcupiq_silver
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}silver
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/silver.py
+
+    gold_pipeline:
+      name: worldcupiq_gold
+      catalog: ${var.catalog}
+      schema: ${var.schema_prefix}gold
+      serverless: true
+      channel: PREVIEW
+      configuration:
+        catalog: ${var.catalog}
+        schema_prefix: ${var.schema_prefix}
+      libraries:
+        - file:
+            path: ingestion/lakeflow/gold.py
+
+  jobs:
+    bronze_refresh:
+      name: worldcupiq_bronze_refresh
+      trigger:
+        periodic:
+          interval: 1
+          unit: DAYS
+      tasks:
+        - task_key: refresh_predictions
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze_pipeline_predictions.id}
+        - task_key: refresh_github_raw
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.github_ingestion_pipeline.id}
+        - task_key: parse_fifa_training_centre
+          depends_on:
+            - task_key: refresh_github_raw
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.parse_pipeline_fifa_training_centre.id}
+        - task_key: parse_relational
+          depends_on:
+            - task_key: refresh_github_raw
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.parse_pipeline_relational.id}
+        - task_key: parse_historical
+          depends_on:
+            - task_key: refresh_github_raw
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.parse_pipeline_historical.id}
+        - task_key: refresh_silver
+          depends_on:
+            - task_key: refresh_predictions
+            - task_key: parse_fifa_training_centre
+            - task_key: parse_relational
+            - task_key: parse_historical
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver_pipeline.id}
+        - task_key: refresh_gold
+          depends_on:
+            - task_key: refresh_silver
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.gold_pipeline.id}
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405617246423583.3.azuredatabricks.net/
+    variables:
+      # Premium workspace, dedicated catalog — no fifaworldcup_ namespacing
+      # needed since this catalog isn't shared with other projects.
+      catalog: worldcupiq_catalog
+      schema_prefix: ""
+
+  # Community Edition workspace — Gold + Semantic layers replicated here so
+  # OntoBricks (which needs Lakebase, admin-gated on the `dev` workspace) has
+  # somewhere to run. Auth via the `cedev` profile in ~/.databrickscfg (see
+  # README.md or ask Claude) — this target only sets the host + catalog var,
+  # not a service-principal identity, matching how `dev` resolves auth via
+  # env/profile fallback rather than an explicit workspace.profile key.
+  cedev:
+    mode: development
+    workspace:
+      host: https://dbc-2103e398-756d.cloud.databricks.com/
+      profile: cedev
+    variables:
+      catalog: fifaworldcup
+
+  prod:
+    mode: production
+    workspace:
+      host: <databricks-workspace-url>
+    variables:
+      catalog: mrlc-catalog
