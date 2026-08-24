@@ -13,7 +13,7 @@ A dashboard can show scores, possession, goals, shots, xG and player stats. Worl
 | Layer | Answers | Databricks realization |
 |---|---|---|
 | **Semantic layer** | "What does this metric *mean*?" | Unity Catalog **Metric Views** |
-| **Ontology** | "What is this entity and how does it *relate*?" | Ontology Delta tables + UC PK/FK + **GraphFrames** |
+| **Ontology** | "What is this entity and how does it *relate*?" | **OntoBricks** (Databricks Labs) — LLM-assisted entity/relationship graph over Gold/Semantic, Lakebase-backed registry, Delta triple materialization |
 | **Context layer** | "What should the AI *know, use and trust*?" | Concept/policy Delta store + **Mosaic AI Vector Search** + UC lineage |
 
 An agent sits on top and reasons across all three.
@@ -34,9 +34,9 @@ Data flows **bottom → top**; questions and reasoning flow **top → bottom**. 
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ MULTI-AGENT (Mosaic AI)       Intent · Semantic · Ontology · Context · Recommend│
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ SEMANTIC & FEATURES           Metric Views · GraphFrames features · Context store│
+│ SEMANTIC & FEATURES           Metric Views · Context store                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│ KNOWLEDGE GRAPH               ontology tables + UC PK/FK spine + GraphFrames   │
+│ KNOWLEDGE GRAPH               OntoBricks — entities/relationships over Gold  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ DATA INGESTION                Sources → ADLS/Volume → Bronze → Silver → Gold   │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -54,7 +54,7 @@ See `architecture.html` for the rendered layered diagram.
 - **Pipelines:** Lakeflow Declarative Pipelines (Delta Live Tables)
 - **Governance:** Unity Catalog (constraints, tags, certified assets, lineage)
 - **Semantic layer:** Unity Catalog Metric Views (YAML)
-- **Graph:** GraphFrames + UC PK/FK constraints + UC Python functions
+- **Graph/Ontology:** [OntoBricks](https://github.com/databrickslabs/ontobricks) (Databricks Labs) — LLM-assisted entity/relationship graph, Lakebase-backed registry, Delta triples in Unity Catalog + UC Python functions
 - **Retrieval:** Mosaic AI Vector Search
 - **Agent:** Mosaic AI Agent Framework on Model Serving; MLflow for tracing + evaluation
 - **NL analytics:** AI/BI Genie (Conversation API)
@@ -69,34 +69,41 @@ See `architecture.html` for the rendered layered diagram.
 ```
 worldcupiq/
 ├── README.md
-├── databricks.yml                  # Asset Bundle — deploys 4 bronze pipelines (one per datasource)
+├── architecture.html               # rendered build-status diagram + per-layer detail tabs (open in a browser)
+├── databricks.yml                  # Asset Bundle — bronze_pipeline_predictions, github_ingestion_pipeline,
+│                                    # 3 parse_pipeline_<datasource>, silver_pipeline, gold_pipeline, bronze_refresh job
+├── .gitattributes                  # line-ending normalization (LF in repo, native in working tree)
+├── .env.example                    # DATABRICKS_HOST / DATABRICKS_TOKEN template
 ├── conf/
-│   ├── 00_catalog.sql              # schemas (incl. fifaworldcup_bronze_<datasource>) + volume in mrlc-catalog
-│   └── 01_grants.sql               # groups, service principal, grants
+│   ├── 00_catalog.sql              # 11 schemas (bronze_<datasource>, silver, gold, semantic, ontology, context, landing) in worldcupiq_catalog
+│   └── 01_grants.sql               # groups, service principal, grants — not yet written (Phase 0 follow-up)
+├── scripts/
+│   ├── load-env.cmd                # loads .env into a cmd.exe session
+│   └── setup-catalog.cmd           # CLI-based alternative to 00_catalog.sql
 ├── ingestion/
 │   └── lakeflow/
-│       ├── bronze.py               # Auto Loader, shared by 5 pipelines (1 per datasource) → fifaworldcup_bronze_<datasource>.* (1:1 raw)
-│       ├── silver.py               # normalize → mrlc-catalog.fifaworldcup_silver.* + constraints
-│       ├── gold.py                 # star schema → mrlc-catalog.fifaworldcup_gold.* (column descriptions live in gold.py's _c() calls for source-level docs, but only reach UC via gold_comments.sql — see below)
-│       └── gold_comments.sql       # COMMENT ON COLUMN for 89 Gold columns — re-run after any gold_pipeline --full-refresh-all (wipes them; a normal run doesn't)
-├── semantic/                       # UC Metric View YAML — deployed to fifaworldcup_semantic (Phase 5)
+│       ├── bronze.py               # Auto Loader → bronze_predictions.pre_match_prediction (the one Auto-Loader source)
+│       ├── bronze_github_parse.py  # parses github_raw.repo_contents → the 3 GitHub-sourced bronze schemas
+│       ├── silver.py               # normalize + entity-resolve → worldcupiq_catalog.silver.* (27 tables)
+│       ├── silver_comments.sql     # COMMENT ON COLUMN for silver's business columns — re-run after any --full-refresh-all
+│       ├── gold.py                 # star schema → worldcupiq_catalog.gold.* (6 dims + 10 facts)
+│       ├── gold_comments.sql       # COMMENT ON COLUMN for Gold's business columns
+│       ├── gold_key_comments.sql   # COMMENT ON COLUMN for Gold's surrogate PK/FK columns — see §6 constraint note
+│       └── gold_constraints.sql    # NOT CURRENTLY APPLICABLE — see §6, kept for if/when gold ever becomes a physical table
+├── semantic/                       # UC Metric View YAML — deployed to semantic (Phase 5, done)
 │   ├── team_performance.metricview.yaml
 │   ├── team_dominance.metricview.yaml
 │   ├── match_performance.metricview.yaml
 │   ├── player_match_performance.metricview.yaml
 │   ├── goalkeeper_match_performance.metricview.yaml
-│   └── comments.sql                # COMMENT ON COLUMN for 99 Metric View columns — re-run after any CREATE OR REPLACE VIEW on these (always wipes them)
-├── ontology/
-│   ├── entities.sql                # mrlc-catalog.fifaworldcup_ontology.entity
-│   ├── relationships.sql           # mrlc-catalog.fifaworldcup_ontology.relationship
-│   ├── graph_build.py              # vertices + edges → GraphFrames
-│   └── functions/
-│       ├── tournament_path.sql     # UC function
-│       └── key_players.sql         # UC function
-├── context/
-│   ├── concept_store.sql           # mrlc-catalog.fifaworldcup_context.concept
-│   ├── policies.json               # governed definitions (best_team, weights)
-│   └── vector_index.py             # Vector Search index over concepts/policies
+│   └── comments.sql                # COMMENT ON COLUMN for all 99 Metric View columns — re-run after any CREATE OR REPLACE VIEW (always wipes them)
+├── docs/
+│   ├── demo-design-notes.md        # original design-doc notes + real candidate dataset URLs
+│   └── assets/ontology/            # OntoBricks screenshots embedded in architecture.html's Knowledge Layer tab
+├── context/                        # Phase 7 — not yet built, see §9
+│   ├── concept_store.sql
+│   ├── policies.json
+│   └── vector_index.py
 ├── agent/
 │   ├── tools.py                    # Genie tool, ontology fns, retriever, lineage
 │   ├── agent.py                    # Mosaic AI Agent Framework
@@ -110,6 +117,11 @@ worldcupiq/
 └── workflows/
     └── worldcupiq_job.yaml         # end-to-end orchestration
 ```
+
+> **No `ontology/` directory.** README §8 originally scoped a hand-rolled `entities.sql` /
+> `relationships.sql` / `graph_build.py` (GraphFrames) design — none of that was built. Phase 6
+> pivoted to **OntoBricks** (Databricks Labs), a separate local application, not a folder in this
+> repo — see §8 for what's actually there.
 
 ---
 
@@ -126,39 +138,46 @@ worldcupiq/
 > just tournament article pages, which would need manual scraping/transcription before they could
 > land anywhere. Rather than build and maintain a scraper for one source, `matches` and `venues`
 > are sourced from the **relational dataset** (`mominullptr/FIFA-World-Cup-2026-Dataset`), which
-> already has both as real files. `fifaworldcup_bronze_fifa_official` and
+> already has both as real files. `bronze_fifa_official` and
 > `bronze_pipeline_fifa_official` are removed accordingly.
 
-Land raw CSV/JSON in `mrlc-catalog.fifaworldcup_landing.raw_files` (a UC Volume), one folder per bronze table
-name — flat, no source subfolder. The source distinction lives at the schema level instead
-(see Catalog layout below), not in the file path.
+**Ingestion mechanism: two paths, by source shape — both actually built.**
 
-> **Ingestion mechanism:** Auto Loader (`cloudFiles`), not Lakeflow Connect. Lakeflow Connect's
-> GitHub pipeline connector syncs a GitHub org's own metadata (`repositories`, `pull_requests`,
-> `issues`, ...) into UC tables — it has no mechanism for landing arbitrary CSV/JSON files that
-> happen to be committed inside a repo, which is what several of these sources are. Auto Loader
-> reading from the landing volume is the correct fit here.
+- **`predictions` only** lands as a flat CSV in `worldcupiq_catalog.landing.raw_files/pre_match_prediction/`
+  and is read by Auto Loader (`cloudFiles`) — `bronze_pipeline_predictions` in `bronze.py`.
+- **The 3 GitHub-hosted sources** (FIFA Training Centre-derived, relational, historical) land via
+  **Lakeflow Connect's GitHub connector** instead — not Auto Loader. Each source repo was forked
+  into the `yuvapraveentiger28` GitHub organization (the connector requires an org, not a personal
+  account — it calls `/orgs/{name}/repos`, which 404s on a personal account) and connected via a
+  Unity Catalog connection (`github-fifaworldcupiq`). The connector lands **every file in every repo
+  it's connected to** as one row per file in `github_raw.repo_contents`, unparsed; three
+  `parse_pipeline_<datasource>` pipelines (`bronze_github_parse.py`) then parse each repo's CSVs into
+  real bronze tables.
+- **On this workspace specifically:** the `github-fifaworldcupiq` connection doesn't exist yet — it
+  needs an admin to grant access to create it, still pending. The 3 GitHub-sourced bronze schemas
+  were populated instead via a **one-time migration** from a prior workspace where the connection
+  already existed (59 tables, 185,959 rows, verified row-for-row). `github_ingestion_pipeline` and
+  the 3 parse pipelines are deployed and ready; they'll run for real once the connection lands. See
+  `architecture.html`'s Data Sources / Ingestion tabs for the live status.
 
 ---
 
 ## 6. Data model
 
 ### Catalog layout
-`mrlc-catalog` — a shared catalog (other projects live in it too) — with every WorldCupIQ schema
-namespaced `fifaworldcup_<...>` to keep this project's objects grouped: `fifaworldcup_landing`
-(Volume only, no tables) · four bronze schemas, one per datasource
-(`fifaworldcup_bronze_fifa_training_centre` ·
-`fifaworldcup_bronze_relational` · `fifaworldcup_bronze_historical` ·
-`fifaworldcup_bronze_predictions`) · `fifaworldcup_silver` · `fifaworldcup_gold` ·
-`fifaworldcup_semantic` · `fifaworldcup_ontology` · `fifaworldcup_context`. See `conf/00_catalog.sql`.
+`worldcupiq_catalog` — dedicated to this project (not shared) — with 11 schemas, **left unprefixed**:
+the catalog itself is the namespace boundary, not a `fifaworldcup_`-style schema prefix. `landing`
+(Volume only, no tables) · `github_raw` (Lakeflow Connect raw landing) · four bronze schemas, one per
+datasource (`bronze_fifa_training_centre` · `bronze_relational` · `bronze_historical` ·
+`bronze_predictions`) · `silver` · `gold` · `semantic` · `ontology` · `context`. See `conf/00_catalog.sql`.
 
-### Bronze — raw, 1:1 with source, split by datasource schema
+### Bronze — raw, 1:1 with source, split by datasource schema (60 tables, all populated)
 | Schema | Tables |
 |---|---|
-| `mrlc-catalog.fifaworldcup_bronze_fifa_training_centre` | `fifa_teams, fifa_players, match_events, match_team_stats, match_player_stats, lineups, substitutions, goals, cards, attempts, passing_network, pressure, set_plays, aerial_control, goal_prevention, gk_distribution, player_physical` |
-| `mrlc-catalog.fifaworldcup_bronze_relational` | `matches, venues, squads, var_events` |
-| `mrlc-catalog.fifaworldcup_bronze_historical` | `hist_tournaments, hist_matches, hist_teams, hist_players, hist_goals, hist_standings` |
-| `mrlc-catalog.fifaworldcup_bronze_predictions` | `pre_match_prediction` |
+| `worldcupiq_catalog.bronze_fifa_training_centre` (21) | `attempts_at_goal, match_appearances, match_teams, matches, passing_network_edges, player_crosses_open_play, player_events, player_in_possession_distributions, player_line_breaks, player_offers_receptions, player_out_of_possession, player_physical_data, players, team_aerial_control, team_defensive_pressure, team_goal_prevention, team_goalkeeping_distribution, team_key_stats, team_phases, team_set_plays, teams` |
+| `worldcupiq_catalog.bronze_relational` (11) | `match_events, match_lineups, match_prediction_features, match_team_stats, matches, player_stats, referees, squads_and_players, teams, tournament_stages, venues` |
+| `worldcupiq_catalog.bronze_historical` (27) | `hist_award_winners, hist_awards, hist_bookings, hist_confederations, hist_goals, hist_group_standings, hist_groups, hist_host_countries, hist_manager_appearances, hist_manager_appointments, hist_managers, hist_matches, hist_penalty_kicks, hist_player_appearances, hist_players, hist_qualified_teams, hist_referee_appearances, hist_referee_appointments, hist_referees, hist_squads, hist_stadiums, hist_substitutions, hist_team_appearances, hist_teams, hist_tournament_stages, hist_tournament_standings, hist_tournaments` |
+| `worldcupiq_catalog.bronze_predictions` (1) | `pre_match_prediction` |
 
 See `ingestion/lakeflow/bronze.py`'s `BRONZE_SOURCES` registry for the authoritative mapping.
 
@@ -168,58 +187,71 @@ See `ingestion/lakeflow/bronze.py`'s `BRONZE_SOURCES` registry for the authorita
 > (`bronze_pipeline_predictions` + 3 `parse_pipeline_<datasource>`), each with its own
 > `catalog`/`schema` and a `datasource_filter` in its `configuration` block that tells the shared
 > source file which subset of its registry to build. One scheduled job (`bronze_refresh`) triggers
-> all four, plus the GitHub Connect raw landing they depend on, daily.
+> all four, plus the GitHub Connect raw landing they depend on, daily — currently only
+> `bronze_pipeline_predictions` can actually run; the other three are blocked pending the GitHub
+> connection (see §5).
 
-### Silver (`mrlc-catalog.fifaworldcup_silver`) — normalized, entity-resolved
-| Table | Grain |
+### Silver (`worldcupiq_catalog.silver`) — normalized, entity-resolved (27 tables)
+| Cluster | Tables |
 |---|---|
-| `match` | one row per match (104) |
-| `team` | one row per team (48) |
-| `player` | one row per player (1,277) |
-| `venue` | one row per stadium |
-| `match_team` | team per match (208) |
-| `match_player` | player per match |
-| `match_event` | one row per event |
-| `player_event` | event attributed to a player |
-| `team_match_statistics` | team tactical stats per match |
-| `player_match_statistics` | player tactical stats per match |
-| `passing_edge` | directed passer→receiver edges (GraphFrames source) |
+| Tournament & reference | `confederation, tournament, stage, tournament_group, qualified_team` |
+| Team & player | `team, team_tournament, player, squad_member` |
+| Officials | `referee, referee_assignment, manager, manager_appointment` |
+| Match spine | `venue, match, group_standing, tournament_standing` |
+| Match performance (2026 only) | `match_team, match_player, match_player_physical, match_goalkeeper, passing_edge` |
+| Events & awards | `match_event, award, award_winner` |
+| Predictions | `match_prediction_feature, prediction` |
 
-Declare **UC primary/foreign-key constraints** on silver — they double as the ontology's enforced spine.
+Entity resolution (team/player/venue/referee/manager appearing in multiple bronze sources) is by exact
+upper+trim name match via a deterministic hash surrogate key (`_sk`), not fuzzy matching.
 
-Key column definitions:
+**UC primary/foreign-key constraints are not currently possible on silver or gold.** The original plan
+here was to declare them as the ontology's enforced spine — but every silver and gold table
+materializes as a Unity Catalog `MATERIALIZED_VIEW` (confirmed via `information_schema.tables`), and
+`ALTER TABLE ... ADD CONSTRAINT` only works on physical Delta tables, not views. Confirmed by actually
+trying it — `EXPECT_TABLE_NOT_VIEW` on all 16 Gold tables. Getting real constraints would mean
+rearchitecting both pipelines around streaming tables/`apply_changes`, not a DDL tweak. The practical
+substitute: every FK-shaped column has an explicit `COMMENT` stating what it references
+(`gold_key_comments.sql`) — the best available relationship signal for downstream tools (including
+OntoBricks' Ontology Wizard, see §8) without formal constraints.
+
+Key column definitions (real, verified against landed data — not guessed):
 
 ```sql
 -- silver.match
-match_id PK, match_number, match_date, stage, group_name,
-venue_id FK, home_team_id FK, away_team_id FK,
-home_score, away_score, home_xg, away_xg, winner_team_id FK
+match_id PK, tournament_id FK, stage_id FK, venue_id FK,
+home_team_id FK, away_team_id FK, winner_team_id FK, referee_id FK,
+match_date, home_score, away_score, home_penalties, away_penalties, home_xg, away_xg
 
 -- silver.match_team
 match_team_id PK, match_id FK, team_id FK, home_away,
-goals, xg, possession_pct, shots, shots_on_target, passes,
-pass_completion_pct, recoveries, pressures, tackles, aerial_duels, corners
+possession_pct, shots, shots_on_target, corners, fouls, offsides,
+pressures, recoveries, aerial_duels
 
 -- silver.match_player
-match_player_id PK, match_id FK, team_id FK, player_id FK,
-minutes, goals, assists, shots, xg, passes, progressive_passes,
-pressures, recoveries, duels, cards
+match_player_id PK, match_id FK, team_id FK, player_id FK, started, position_played,
+goals, shots, passes, passes_completed, progressive_passes, recoveries, duels
 
 -- silver.passing_edge
-match_id FK, team_id FK, passer_id FK, receiver_id FK, passes, progressive, xt_added
+match_id FK, team_id FK, passer_id FK, receiver_id FK, passes
 ```
 
-### Gold (`mrlc-catalog.fifaworldcup_gold`) — star schema
-**Facts:** `fact_match, fact_team_match, fact_player_match, fact_goal, fact_shot, fact_card, fact_substitution, fact_pass`
-**Dimensions:** `dim_tournament, dim_stage, dim_group, dim_team, dim_player, dim_venue, dim_country`
-**Aggregate (semantic foundation):** `fact_team_tournament`
+### Gold (`worldcupiq_catalog.gold`) — star schema (16 tables: 6 dims + 10 facts)
+**Dimensions:** `dim_tournament, dim_stage, dim_group, dim_team, dim_player, dim_venue`
+**Match-grain facts:** `fact_match, fact_team_match, fact_player_match, fact_goalkeeper_match, fact_pass, fact_match_event, fact_prediction`
+**Tournament/group-grain facts:** `fact_team_tournament, fact_team_dominance, fact_group_standing`
+
+`fact_match_event` merges the original blueprint's separate `fact_goal`/`fact_shot`/`fact_card`/
+`fact_substitution` into one polymorphic table (`event_type` distinguishes them) — those four
+never existed as separate tables. There's no `dim_country` either — country context lives inline as
+`country_code` on `dim_team`/`dim_venue`.
 
 ```sql
 -- gold.fact_team_tournament (one row per team per edition)
-tournament_id FK, team_id FK, matches, wins, draws, losses,
-goals_for, goals_against, goal_difference, points,
-xg, xga, possession, shots, shots_on_target, pass_completion,
-pressures, progressive_actions, set_piece_goals, open_play_goals, cards
+team_tournament_id PK, tournament_id FK, team_id FK, group_id FK,
+matches, wins, draws, losses, goals_for, goals_against, points,
+xg, xga, possession, shots, shots_on_target, pressures,
+final_rank, host_performance
 ```
 
 Historical facts conform to the **same dims and Metric Views**, so era comparisons are apples-to-apples.
@@ -263,22 +295,51 @@ Tournament-grain measures above answer "how good is this team across the whole W
 **`semantic.goalkeeper_match_performance`** — grain: goalkeeper × match, source `gold.fact_goalkeeper_match`.
 - Shots Faced, Saves, Save Percentage
 
-None of these carry weighted/composite scores like Performance Dominance Score — they're governed vocabulary (consistent naming/formulas), not judgment calls, so there's nothing to keep out of the agent's hands the way the dominance weights are. `fact_pass` (passer→receiver edges) and `fact_match_event` (goals/cards/subs) stay as raw Gold facts, not Metric Views — they feed GraphFrames traversal (Phase 6) and the event timeline rather than aggregate measures.
+None of these carry weighted/composite scores like Performance Dominance Score — they're governed vocabulary (consistent naming/formulas), not judgment calls, so there's nothing to keep out of the agent's hands the way the dominance weights are. `fact_pass` (passer→receiver edges) and `fact_match_event` (goals/cards/subs) stay as raw Gold facts, not Metric Views — they feed ontology traversal (Phase 6, via OntoBricks — see §8) and the event timeline rather than aggregate measures.
 
 **Real constraint found deploying these three:** UC Metric View joins are single-hop from `source` only — a join's `on:` clause can't reference another join's alias (confirmed by `UNRESOLVED_COLUMN` errors chaining `dim_tournament`/`dim_stage`/`dim_venue` off the already-joined `fact_match` alias). Since `tournament_id`/`stage_id`/`venue_id` live only on `gold.fact_match`, not on `fact_team_match`/`fact_player_match`/`fact_goalkeeper_match` directly, these three views expose those as raw IDs rather than resolved names (`tournament_year`, `stage_name`, `venue_name` were dropped from the deployed YAML). Resolve those in the BI tool or a downstream query instead.
 
 ---
 
-## 8. Ontology build (Databricks-native, no external graph DB)
+## 8. Ontology build — via OntoBricks (Databricks Labs), in progress
 
-1. **Declare** entity/relationship tables in `mrlc-catalog.fifaworldcup_ontology` (the machine-readable spec).
-2. **Anchor** each relationship to a UC PK/FK constraint on silver/gold (enforced spine).
-3. **Materialize** vertices + typed edges from silver → wrap in **GraphFrames** for multi-hop traversal.
-4. **Expose** useful walks as UC functions: `ontology.tournament_path(team)`, `ontology.key_players(team)`.
-5. **Publish** the ontology spec (YAML) to a Volume and index it in Vector Search.
+**Status:** in progress. The hand-rolled design originally scoped here — `ontology/entities.sql` +
+`relationships.sql` + GraphFrames traversal + UC functions — was never built. Once formal UC PK/FK
+constraints turned out to be unavailable on gold/silver (§6), that design's "anchor to an enforced
+spine" premise no longer held cleanly, and [OntoBricks](https://github.com/databrickslabs/ontobricks)
+(Databricks Labs) covered the same job — LLM-assisted entity/relationship generation from real UC
+metadata, backed by a proper registry — with far less to hand-build.
 
-Entities: `Tournament, Stage, Group, Match, Team, Player, Venue, City, MatchEvent (Goal/Shot/Card/Substitution/VAREvent)`
-Relationships: `HAS_STAGE, CONTAINS_GROUP, CONTAINS_TEAM, CONTAINS_MATCH, INVOLVES_TEAM, HAS_PLAYER, PARTICIPATES_IN, PLAYED_AT, LOCATED_IN, CONTAINS_EVENT, IS_A`
+**What's actually running:**
+- OntoBricks runs locally (`scripts/start.sh`, not deployed as a Databricks App) against the `dev`
+  workspace, backed by a **Lakebase** (Postgres) project (`ontobricks-app`/`production`) provisioned
+  on this workspace for its domain registry, plus a `worldcupiq_catalog.ontology`-schema UC Volume
+  for binary artifacts.
+- A domain (`Worldcupiq`) was created, with metadata imported from `worldcupiq_catalog.gold` (16
+  tables) and `.semantic` (5 Metric Views) — 21 objects total.
+- The **Ontology Wizard** (LLM agent, Ontology → Wizard) generated 16 entities from that metadata —
+  one per gold table/view, e.g. `dim_team` → `Team`, `fact_match` → `Match`.
+- **Real finding:** the Wizard did not wire relationships for every entity — 7 of 16 (`Player`,
+  `Stage`, and the 5 performance/measurement facts) came out completely disconnected. Fixed by
+  manually adding 25 relationships, each name kept globally unique per entity pair since OntoBricks
+  doesn't allow reusing a relationship name across different pairs (e.g. `teamMatchStatsForTeam` /
+  `teamMatchStatsForMatch`, not a generic `forTeam`/`forMatch`). All 16 entities are now connected.
+- **Real finding:** node/attribute mapping (Visual Mapping Designer — binding each entity/relationship
+  to its real `catalog.schema.table.column`) has to be done one at a time; there's no working bulk-map
+  completion despite an advertised "Auto-Map" step.
+- Along the way, found and fixed three real bugs in OntoBricks' own code (not our data): two
+  `databricks-sql-connector` paramstyle bugs (`%s` used where the driver needs `?`, breaking table
+  comment lookups and a schema probe), and a Unity Catalog Metric View incompatibility (`SELECT *`
+  fails on a Metric View's unwrapped measure columns — `SELECT 1` fixed it) in the SELECT-permission
+  check used by both the data-source screen and the mapping validator.
+
+**Current step:** mapping every entity/relationship to its backing gold/semantic column. Next:
+materializing the Knowledge Graph itself (OntoBricks writes it into `worldcupiq_catalog.ontology` as
+Delta triple tables, per the workspace's own choice of Lakehouse over Lakebase/Neo4j as the graph
+backend, to keep the ontology data itself inside Unity Catalog rather than a separate store).
+
+See `architecture.html`'s **Knowledge Layer** tab for the full before/after graph screenshots, the
+complete 25-relationship table, and the mapping-designer state.
 
 ---
 
@@ -328,22 +389,22 @@ databricks-sdk
 databricks-sql-connector
 ```
 
-`app.py` calls the **Genie Conversation API** via `databricks-sdk`, and for each question shows side by side: resolved definition (Vector Search), generated semantic SQL + result, ontology traversal path (UC function), and source lineage. Questions 1–4 route to Genie; Question 5 ("coach Spain") routes to the **agent endpoint**.
+`app.py` calls the **Genie Conversation API** via `databricks-sdk`, and for each question shows side by side: resolved definition (Vector Search), generated semantic SQL + result, ontology traversal path, and source lineage. Questions 1–4 route to Genie; Question 5 ("coach Spain") routes to the **agent endpoint**. Phase 9, not yet built — the ontology traversal path itself depends on how Phase 6 finishes exposing OntoBricks' graph (its own GraphQL/SPARQL surface, or UC functions bound to ontology classes via its Class Actions feature — both are real OntoBricks capabilities, which one this app calls is still open).
 
-Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the Genie space, `SELECT` on `mrlc-catalog.fifaworldcup_semantic` / `mrlc-catalog.fifaworldcup_gold`, `EXECUTE` on ontology functions, and query on the Vector Search index.
+Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the Genie space, `SELECT` on `worldcupiq_catalog.semantic` / `worldcupiq_catalog.gold`, whatever ontology query surface Phase 6 lands on, and query on the Vector Search index.
 
 ---
 
 ## 13. Build order (suggested milestones)
 
-- [x] **Phase 0 — Foundation:** workspace (Premium), UC metastore, shared catalog `mrlc-catalog` (created, owned by other projects too). Schemas + `fifaworldcup_landing` volume, groups/grants → `conf/`
-- [x] **Phase 1 — Land sources:** `predictions.csv` landed via Auto Loader; the 3 GitHub-sourced datasets sync automatically via Lakeflow Connect (no manual landing needed for those — `fifa_official` was dropped, see §5).
-- [x] **Phase 2 — Bronze:** Lakeflow pipeline, Auto Loader, 1:1 raw tables. → `ingestion/lakeflow/bronze.py`
-- [x] **Phase 3 — Silver:** normalize, entity-resolve, declare PK/FK, DQ expectations. → `silver.py` (28 tables, deployed and run against real bronze data; EAV-shaped fifa_training_centre stat tables — `team_key_stats`, `team_phases`, `team_set_plays`, `team_goalkeeping_distribution` — not yet pivoted into `match_team`, a follow-up once their metric label strings are sampled)
-- [x] **Phase 4 — Gold:** star schema (6 dims + 10 facts) + `fact_team_tournament` + `fact_team_dominance` (governed Performance Dominance Score). → `gold.py` (16 flows deployed and run against real Silver data)
-- [x] **Phase 5 — Semantic:** 5 Metric Views deployed to `mrlc-catalog.fifaworldcup_semantic` — `team_performance`, `team_dominance` (tournament grain), `match_performance`, `player_match_performance`, `goalkeeper_match_performance` (match grain). Verified live with `MEASURE()` queries against real Gold data. → `semantic/`
-- [ ] **Phase 6 — Ontology:** entity/relationship tables, GraphFrames, UC functions. → `ontology/`
-- [ ] **Phase 7 — Context:** concept store, policies, Vector Search index. → `context/`
+- [x] **Phase 0 — Foundation:** Premium workspace, UC metastore, dedicated catalog `worldcupiq_catalog` (11 unprefixed schemas). `01_grants.sql` (groups, app service principal) not yet written. → `conf/`
+- [x] **Phase 1 — Land sources:** `predictions.csv` landed via Auto Loader. The 3 GitHub-sourced datasets landed via a one-time migration from a prior workspace where the GitHub connection already existed — live Lakeflow Connect sync is still blocked pending admin access to create `github-fifaworldcupiq` on this workspace (`fifa_official` was dropped regardless, see §5).
+- [x] **Phase 2 — Bronze:** Auto Loader + Lakeflow Connect, 1:1 raw tables. 60 tables across 4 schemas, all populated. → `ingestion/lakeflow/bronze.py`, `bronze_github_parse.py`
+- [x] **Phase 3 — Silver:** normalize, entity-resolve. 27 tables, deployed and run against real bronze data. PK/FK constraints turned out to be unavailable (§6 — gold/silver materialize as UC materialized views); EAV-shaped fifa_training_centre stat tables (`team_key_stats`, `team_phases`, `team_set_plays`, `team_goalkeeping_distribution`) not yet pivoted into `match_team`, a follow-up once their metric label strings are sampled. → `silver.py`, `silver_comments.sql`
+- [x] **Phase 4 — Gold:** star schema (6 dims + 10 facts) + `fact_team_tournament` + `fact_team_dominance` (governed Performance Dominance Score). 16 tables, deployed and run against real Silver data, full column comment coverage (business columns in `gold_comments.sql`, key/FK columns in `gold_key_comments.sql`). → `gold.py`
+- [x] **Phase 5 — Semantic:** 5 Metric Views deployed to `worldcupiq_catalog.semantic` — `team_performance`, `team_dominance` (tournament grain), `match_performance`, `player_match_performance`, `goalkeeper_match_performance` (match grain). Verified live with `MEASURE()` queries against real Gold data. → `semantic/`
+- [~] **Phase 6 — Ontology:** in progress via OntoBricks, not the hand-rolled GraphFrames design originally scoped here. 16 entities generated, manually completed to a fully-connected 25-relationship graph, mapping to backing columns underway. See §8.
+- [ ] **Phase 7 — Context:** concept store, policies, Vector Search index. Not yet built — no `context.concept` table, no `policies.json`, nothing in `worldcupiq_catalog.context` beyond the empty schema. → `context/`
 - [ ] **Phase 8 — Genie + Agent:** Genie space, agent tools + framework, MLflow eval. → `genie/`, `agent/`
 - [ ] **Phase 9 — App + Orchestration:** Streamlit app, Databricks Workflow. → `app/`, `workflows/`
 
@@ -354,7 +415,7 @@ Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the
 1. **"Rank the 48 teams by performance."** → semantic layer (Performance Dominance Score)
 2. **"Why did Spain perform so well?"** → ontology traversal (Team → Match → Player → Event)
 3. **"Was Spain the best team, or just the champion?"** → context layer (governed `best_team` policy + evidence)
-4. **"Compare Spain's route to the final with Argentina's, adjusted for opponent strength."** → GraphFrames multi-hop + semantic opponent-strength metrics
+4. **"Compare Spain's route to the final with Argentina's, adjusted for opponent strength."** → OntoBricks multi-hop ontology traversal + semantic opponent-strength metrics
 5. **"If I were coaching Spain, what should I preserve and change?"** → agent combining semantic + ontology + context + evidence + reasoning
 
 ---
@@ -363,13 +424,20 @@ Deploy: `databricks apps deploy worldcupiq`. Grant the app service principal the
 
 - Databricks **Premium** workspace with Unity Catalog enabled (AI/BI Genie, Model Serving, Vector Search, Databricks Apps).
 - ADLS Gen2 storage account + Access Connector for Databricks.
-- `graphframes` library available on the cluster/pipeline.
 - Permissions to create catalogs, external locations, serving endpoints, and apps.
+- Lakeflow Connect GitHub connection (`github-fifaworldcupiq`) — needs a GitHub **organization**
+  (not personal account) and admin access to create the UC connection. Blocking Phase 2's live sync
+  on this workspace; see §5.
+- **For Phase 6 (Ontology) specifically:** [OntoBricks](https://github.com/databrickslabs/ontobricks)
+  run locally (Python 3.12+, `uv`) against this workspace, plus a **Lakebase** (Postgres Autoscaling)
+  project provisioned on the workspace for its domain registry (`databricks postgres create-project`)
+  and a Databricks Model Serving / Foundation Model API endpoint for the Wizard's LLM calls. No
+  `graphframes` — that was only needed by the abandoned hand-rolled ontology design.
 
 ---
 
 ## Notes for the build
 
 - Keep source names generic; wire the exact public dataset URLs when you land Phase 1.
-- The code fragments in `semantic/`, `ontology/`, and `app/` are illustrative blueprints — validate the Metric View YAML, the GraphFrames traversals, and the Genie SDK signatures against your workspace's runtime/SDK version.
+- The code fragments in `semantic/` and `app/` are illustrative blueprints — validate the Metric View YAML and the Genie SDK signatures against your workspace's runtime/SDK version. There is no `ontology/` directory (§8) — ontology is built in OntoBricks, a separate local application, not source files in this repo.
 - Governance is the differentiator: every answer must be traceable to a governed Metric View and a source table via Unity Catalog lineage.
